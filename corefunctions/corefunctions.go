@@ -12,7 +12,6 @@ import (
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/constants"
-	log "github.com/Sirupsen/logrus"
 )
 
 /**
@@ -156,7 +155,6 @@ var ChangePassword = func(user interface{}, message messages.Message) (response 
 
 var ResetPassword = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
 
-	log.Info("ResetPassword function is called.")
 	if ResetPasswordConfig == nil {
 		err = &utils.Error{http.StatusInternalServerError, "Email reset configuration is not defined."}
 	}

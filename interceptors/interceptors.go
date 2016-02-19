@@ -5,7 +5,7 @@ import (
 	"strings"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
-	log "github.com/Sirupsen/logrus"
+"github.com/rihtim/core/log"
 )
 
 type Interceptor func(user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error)

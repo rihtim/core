@@ -3,10 +3,12 @@ package core
 import (
 	"io"
 	"os"
+	"time"
 	"strings"
 	"net/http"
 	"encoding/json"
 	"github.com/rihtim/core/utils"
+	"github.com/rihtim/core/log"
 	"github.com/rihtim/core/config"
 	"github.com/rihtim/core/functions"
 	"github.com/rihtim/core/interceptors"
@@ -14,8 +16,6 @@ import (
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/actors"
 	"github.com/rihtim/core/constants"
-	log "github.com/Sirupsen/logrus"
-	"time"
 )
 
 var Configuration map[string]interface{}
@@ -46,6 +46,7 @@ var InitWithConfig = func(fileName string) (err *utils.Error) {
 		log.Fatal(dbConnErr.Message)
 		os.Exit(dbConnErr.Code)
 	}
+	log.Info("Database connection is established successfully.")
 
 	// creating root actor
 	RootActor = actors.CreateActor(nil, "/")
@@ -108,7 +109,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	RootActor.Inbox <- requestWrapper
 	response := <-responseChannel
 	elapsed := time.Since(start)
-	log.Debug("Received response from actor after: %s", elapsed)
+	log.Debug("Received response from actor after ", elapsed)
 
 
 	if response.Status != 0 {

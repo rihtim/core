@@ -10,7 +10,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"github.com/rihtim/core/utils"
-	log "github.com/Sirupsen/logrus"
 )
 
 type MongoAdapter struct {
@@ -73,7 +72,6 @@ func (ma *MongoAdapter) Connect() (err *utils.Error) {
 		err = &utils.Error{http.StatusInternalServerError, "Database connection failed. Reason: " + dialErr.Error()};
 		return
 	}
-	log.Info("Database connection is established successfully.")
 
 	return
 }

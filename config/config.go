@@ -5,10 +5,8 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"github.com/rihtim/core/utils"
-	"github.com/Sirupsen/logrus"
+"github.com/rihtim/core/log"
 )
-
-var log = logrus.New()
 
 func ReadConfig(fileName string) (configuration map[string]interface{}, err *utils.Error) {
 

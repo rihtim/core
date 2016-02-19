@@ -12,7 +12,8 @@ import (
 	"github.com/rihtim/core/interceptors"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/modifier"
-	log "github.com/Sirupsen/logrus"
+	"github.com/rihtim/core/log"
+
 )
 
 type Actor struct {
@@ -64,7 +65,6 @@ var CreateActor = func(parent *Actor, res string) (a Actor) {
 }
 
 func (a *Actor) Run() {
-	log.SetLevel(log.DebugLevel)
 	defer func() {
 		log.Debug(a.res + ":  Stopped running.")
 	}()
