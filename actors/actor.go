@@ -43,6 +43,7 @@ var AllowedMethodsOfActorTypes = map[string]map[string]bool{
 };
 
 var CreateActor = func(parent *Actor, res string) (a Actor) {
+	log.Debug("Creating actor for " + res)
 
 	if parent == nil {
 		a.actorType = constants.ActorTypeRoot
@@ -73,12 +74,15 @@ func (a *Actor) Run() {
 	for {
 		select {
 		case requestWrapper := <-a.Inbox:
+			log.Debug(a.res + ": Received a message.")
 
 			if requestWrapper.Res == a.res {
 				// if the resource of the message is this actor's resource
 
-				messageString, _ := json.Marshal(requestWrapper.Message)
-				log.Info(a.res + ": Received " + string(messageString))
+				messageString, mErr := json.Marshal(requestWrapper.Message)
+				if mErr == nil {
+					log.Info(a.res + ": Handling " + string(messageString))
+				}
 
 				response, err := handleRequest(a, requestWrapper)
 
@@ -90,14 +94,18 @@ func (a *Actor) Run() {
 
 				a.checkAndSend(requestWrapper.Listener, response)
 
-				responseString, _ := json.Marshal(response.Body)
-				log.Info(a.res + ": Responded " + string(responseString))
+				responseString, rmErr := json.Marshal(response.Body)
+				if rmErr == nil {
+					log.Info(a.res + ": Responding " + string(responseString))
+				}
 
 				// TODO stop the actor if it belongs to an item and the item is deleted
 				// TODO stop the actor if it belongs to an item and the item doesn't exist
 				// TODO stop the actor if it belongs to an entity and 'get' returns an empty array (not sure though)
 
 			} else {
+				log.Info(a.res + ": Forwarding message to child actor.")
+
 				// if the resource belongs to a children actor
 				childRes := getChildRes(requestWrapper.Res, a.res)
 
