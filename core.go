@@ -102,8 +102,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	responseChannel := make(chan messages.Message)
 	requestWrapper.Listener = responseChannel
 
+	log.Debug("Sending request info to root actor")
 	RootActor.Inbox <- requestWrapper
 	response := <-responseChannel
+	log.Debug("Received from actor")
+
 	if response.Status != 0 {
 		w.WriteHeader(response.Status)
 	}
