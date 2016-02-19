@@ -15,6 +15,7 @@ import (
 	"github.com/rihtim/core/actors"
 	"github.com/rihtim/core/constants"
 	log "github.com/Sirupsen/logrus"
+	"time"
 )
 
 var Configuration map[string]interface{}
@@ -102,10 +103,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	responseChannel := make(chan messages.Message)
 	requestWrapper.Listener = responseChannel
 
+	start := time.Now()
 	log.Debug("Sending request info to root actor")
 	RootActor.Inbox <- requestWrapper
 	response := <-responseChannel
-	log.Debug("Received from actor")
+	elapsed := time.Since(start)
+	log.Debug("Received response from actor after: %s", elapsed)
+
 
 	if response.Status != 0 {
 		w.WriteHeader(response.Status)
