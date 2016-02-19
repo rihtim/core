@@ -3,7 +3,6 @@ package core
 import (
 	"io"
 	"os"
-	"time"
 	"strings"
 	"net/http"
 	"encoding/json"
@@ -16,10 +15,11 @@ import (
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/actors"
 	"github.com/rihtim/core/constants"
+	"github.com/Sirupsen/logrus"
 )
 
 var Configuration map[string]interface{}
-var RootActor actors.Actor
+//var RootActor actors.Actor
 
 var InitWithConfig = func(fileName string) (err *utils.Error) {
 
@@ -49,8 +49,8 @@ var InitWithConfig = func(fileName string) (err *utils.Error) {
 	log.Info("Database connection is established successfully.")
 
 	// creating root actor
-	RootActor = actors.CreateActor(nil, "/")
-	go RootActor.Run()
+//	RootActor = actors.CreateActor(nil, "/")
+//	go RootActor.Run()
 
 	return
 }
@@ -101,15 +101,25 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responseChannel := make(chan messages.Message)
-	requestWrapper.Listener = responseChannel
+//	responseChannel := make(chan messages.Message)
+//	requestWrapper.Listener = responseChannel
 
-	start := time.Now()
-	log.Debug("Sending request info to root actor")
-	RootActor.Inbox <- requestWrapper
-	response := <-responseChannel
-	elapsed := time.Since(start)
-	log.Debug("Received response from actor after ", elapsed)
+//	log.Debug("Sending request actor")
+	actor := actors.CreateActorForRes(requestWrapper.Res)
+	response, err := actors.HandleRequest(&actor, requestWrapper)
+
+	if err != nil {
+		if response.Status == 0 {response.Status = err.Code}
+		if response.Body == nil {response.Body = map[string]interface{}{"message":err.Message}}
+		log.WithFields(logrus.Fields{
+			"res": requestWrapper.Res,
+			"command": requestWrapper.Message.Command,
+			"errorCode": err.Code,
+			"errorMessage": err.Message,
+		}).Error("Got error.")
+	}
+//	RootActor.Inbox <- requestWrapper
+//	response := <-responseChannel
 
 
 	if response.Status != 0 {
@@ -129,7 +139,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 		io.WriteString(w, string(bytes))
 	}
-	close(responseChannel)
+//	close(responseChannel)
 }
 
 

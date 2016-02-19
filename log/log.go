@@ -34,6 +34,14 @@ func SetLevel(level logrus.Level) {
 	logger.Level= level
 }
 
+func SetFormatter(formatter logrus.Formatter) {
+	logger.Formatter= formatter
+}
+
 func AddHook(hook logrus.Hook) {
 	logger.Hooks.Add(hook)
+}
+
+func WithFields(fields logrus.Fields) *logrus.Entry {
+	return logger.WithFields(fields)
 }

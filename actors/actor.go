@@ -13,7 +13,8 @@ import (
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/modifier"
 	"github.com/rihtim/core/log"
-
+	"time"
+	"github.com/Sirupsen/logrus"
 )
 
 type Actor struct {
@@ -65,6 +66,25 @@ var CreateActor = func(parent *Actor, res string) (a Actor) {
 	return
 }
 
+var CreateActorForRes = func(res string) (a Actor) {
+	//	log.Debug("Creating actor for " + res)
+
+	if functionHandler := functions.GetFunctionHandler(res); functionHandler != nil {
+		a.actorType = constants.ActorTypeFunctions
+	} else if resParts := strings.Split(res, "/"); len(resParts) == 2 {
+		a.actorType = constants.ActorTypeCollection
+		a.class = resParts[1]
+
+	} else if len(resParts) == 3 {
+		a.actorType = constants.ActorTypeModel
+		a.class = resParts[1]
+	}
+
+	a.res = res
+	a.Inbox = make(chan messages.RequestWrapper)
+	return
+}
+
 func (a *Actor) Run() {
 	defer func() {
 		log.Debug(a.res + ":  Stopped running.")
@@ -84,7 +104,7 @@ func (a *Actor) Run() {
 					log.Info(a.res + ": Handling " + string(messageString))
 				}
 
-				response, err := handleRequest(a, requestWrapper)
+				response, err := HandleRequest(a, requestWrapper)
 
 				if err != nil {
 					if response.Status == 0 {response.Status = err.Code}
@@ -123,7 +143,12 @@ func (a *Actor) Run() {
 	}
 }
 
-var handleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (response messages.Message, err *utils.Error) {
+var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (response messages.Message, err *utils.Error) {
+	start := time.Now()
+	log.WithFields(logrus.Fields{
+		"res": requestWrapper.Res,
+		"command": requestWrapper.Message.Command,
+	}).Info("Received request.")
 
 	// check for method is allowed on the resource type
 	allowedMethods := AllowedMethodsOfActorTypes[a.actorType]
@@ -184,6 +209,13 @@ var handleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 	finalMessage := copyMessage(response)
 	finalMessage.Body = finalInterceptorBody
 	go interceptors.ExecuteInterceptors(message.Res, message.Command, interceptors.FINAL, user, finalMessage)
+
+	elapsed := time.Since(start)
+	log.WithFields(logrus.Fields{
+		"res": requestWrapper.Res,
+		"command": requestWrapper.Message.Command,
+		"duration": elapsed,
+	}).Info("Returning response.")
 	return
 }
 

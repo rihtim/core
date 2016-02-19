@@ -17,3 +17,8 @@ var MethodNotAllowed = func(user map[string]interface{}, message messages.Messag
 	err = &utils.Error{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)}
 	return
 }
+
+var NotFound = func(user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error) {
+	err = &utils.Error{http.StatusNotFound, http.StatusText(http.StatusNotFound)}
+	return
+}
