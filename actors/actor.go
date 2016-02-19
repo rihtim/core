@@ -214,7 +214,7 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 	log.WithFields(logrus.Fields{
 		"res": requestWrapper.Res,
 		"command": requestWrapper.Message.Command,
-		"duration": elapsed,
+		"duration": (elapsed.Nanoseconds())/1e3,
 	}).Info("Returning response.")
 	return
 }
