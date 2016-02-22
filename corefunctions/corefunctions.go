@@ -2,10 +2,11 @@ package corefunctions
 
 import (
 	"fmt"
+	"strings"
 	"net/smtp"
 	"net/http"
-	"encoding/json"
 	"math/rand"
+	"encoding/json"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/auth"
@@ -146,10 +147,6 @@ var ChangePassword = func(user interface{}, message messages.Message) (response 
 
 	body := map[string]interface{}{"password": string(hashedPassword)}
 	response.Body, _, err = database.Adapter.Update(constants.ClassUsers, userAsMap[constants.IdIdentifier].(string), body)
-	if err != nil {
-		return
-	}
-
 	return
 }
 
@@ -199,6 +196,141 @@ var ResetPassword = func(user interface{}, message messages.Message) (response m
 	}
 
 	err = sendNewPasswordEmail(smtpServer, smtpPort, senderEmail, senderEmailPassword, mailSubject, mailContentTemplate, recipientEmail.(string), generatedPassword)
+	return
+}
+
+var GrantRole = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+
+	resParts := strings.Split(message.Res, "/")
+	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
+		err = &utils.Error{http.StatusBadRequest, "Grant role can only be used on user objects. Ex: '/users/{id}/grantRole'"}
+		return
+	}
+	userIdToUpdate := resParts[2]
+
+	if message.Body == nil {
+		err = &utils.Error{http.StatusBadRequest, "Grant role request must contain body."}
+		return
+	}
+
+	rolesToGrant, hasRolesToGrant := message.Body[constants.RolesIdentifier]
+	if !hasRolesToGrant {
+		err = &utils.Error{http.StatusBadRequest, "Grant role request must contain list of roles in '_roles' field in body."}
+		return
+	}
+
+	userAsMap := user.(map[string]interface{})
+	requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
+	if !requestOwnersHasRoles {
+		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
+		return
+	}
+
+	matchingRoleCount := 0
+	for _, roleToGrant := range rolesToGrant.([]interface{}) {
+		for _, userRole := range requestOwnersRoles.([]interface{}) {
+			if strings.EqualFold(roleToGrant.(string), userRole.(string)) {
+				matchingRoleCount++
+				continue
+			}
+		}
+	}
+
+	if matchingRoleCount != len(rolesToGrant.([]interface{})) {
+		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to grant the given roles."}
+		return
+	}
+
+	var userToUpdate map[string]interface{}
+	userToUpdate, err = database.Adapter.Get(constants.ClassUsers, userIdToUpdate)
+	if err != nil {
+		return
+	}
+
+	roles, hasRoles := userToUpdate[constants.RolesIdentifier]
+
+	if !hasRoles {
+		roles = rolesToGrant
+	} else {
+
+		for _, roleToGrant := range rolesToGrant.([]interface{}) {
+			if !arrayContains(roles.([]interface{}), roleToGrant) {
+				roles = append(roles.([]interface{}), roleToGrant)
+			}
+		}
+	}
+
+	body := map[string]interface{}{constants.RolesIdentifier: roles}
+	response.Body, hookBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
+	return
+}
+
+var RecallRole = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+
+	resParts := strings.Split(message.Res, "/")
+	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
+		err = &utils.Error{http.StatusBadRequest, "Recall role can only be used on user objects. Ex: '/users/{id}/recallRole'"}
+		return
+	}
+	userIdToUpdate := resParts[2]
+
+	if message.Body == nil {
+		err = &utils.Error{http.StatusBadRequest, "Recall role request must contain body."}
+		return
+	}
+
+	rolesToRecall, hasRolesToRecall := message.Body[constants.RolesIdentifier]
+	if !hasRolesToRecall {
+		err = &utils.Error{http.StatusBadRequest, "Recall role request must contain list of roles in '_roles' field in body."}
+		return
+	}
+
+	userAsMap := user.(map[string]interface{})
+	requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
+	if !requestOwnersHasRoles {
+		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
+		return
+	}
+
+	matchingRoleCount := 0
+	for _, roleToRecall := range rolesToRecall.([]interface{}) {
+		for _, userRole := range requestOwnersRoles.([]interface{}) {
+			if strings.EqualFold(roleToRecall.(string), userRole.(string)) {
+				matchingRoleCount++
+				continue
+			}
+		}
+	}
+
+	if matchingRoleCount != len(rolesToRecall.([]interface{})) {
+		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to recall the given roles."}
+		return
+	}
+
+	var userToUpdate map[string]interface{}
+	userToUpdate, err = database.Adapter.Get(constants.ClassUsers, userIdToUpdate)
+	if err != nil {
+		return
+	}
+
+	existingRoles, hasRoles := userToUpdate[constants.RolesIdentifier]
+	newRoles := make([]interface{}, 0)
+
+	if !hasRoles {
+		response.Body = map[string]interface{}{"message": "User doesn't have any role info. Not updating anything."}
+		return
+	} else {
+
+		for _, existingRole := range existingRoles.([]interface{}) {
+
+			if !arrayContains(rolesToRecall.([]interface{}), existingRole) {
+				newRoles = append(newRoles, existingRole)
+			}
+		}
+	}
+
+	body := map[string]interface{}{constants.RolesIdentifier: newRoles}
+	response.Body, hookBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
 	return
 }
 
@@ -262,5 +394,14 @@ var sendNewPasswordEmail = func(smtpServer, smtpPost, senderEmail, senderEmailPa
 	if sendMailErr != nil {
 		err = &utils.Error{http.StatusInternalServerError, "Sending email failed. Reason: " + sendMailErr.Error()}
 	}
+	return
+}
+
+var arrayContains = func(array []interface{}, item interface{}) (contains bool) {
+	set := make(map[string]bool)
+	for _, v := range array {
+		set[v.(string)] = true
+	}
+	_, contains = set[item.(string)]
 	return
 }

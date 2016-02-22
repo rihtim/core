@@ -4,6 +4,8 @@ import (
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/log"
+	"regexp"
+"strings"
 )
 
 type FunctionHandler func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error)
@@ -20,5 +22,14 @@ var AddFunctionHandler = func(path string, handler FunctionHandler) {
 }
 
 var GetFunctionHandler = func(path string) (handler FunctionHandler) {
-	return functionHandlers[path]
+
+	for handlerPath, h := range functionHandlers {
+		validator, rexpErr := regexp.Compile(handlerPath)
+		if !(strings.EqualFold(path, handlerPath) || (rexpErr == nil && validator.MatchString(path))) {
+			continue
+		}
+		handler = h
+		return
+	}
+	return
 }
