@@ -201,6 +201,11 @@ var ResetPassword = func(user interface{}, message messages.Message) (response m
 
 var GrantRole = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
 
+	if len(user.(map[string]interface{})) == 0 {
+		err = &utils.Error{http.StatusUnauthorized, "Grant role request requires access token."}
+		return
+	}
+
 	resParts := strings.Split(message.Res, "/")
 	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
 		err = &utils.Error{http.StatusBadRequest, "Grant role can only be used on user objects. Ex: '/users/{id}/grantRole'"}
@@ -262,10 +267,16 @@ var GrantRole = func(user interface{}, message messages.Message) (response messa
 
 	body := map[string]interface{}{constants.RolesIdentifier: roles}
 	response.Body, hookBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
+	response.Body[constants.RolesIdentifier] = roles
 	return
 }
 
 var RecallRole = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+
+	if len(user.(map[string]interface{})) == 0 {
+		err = &utils.Error{http.StatusUnauthorized, "Grant role request requires access token."}
+		return
+	}
 
 	resParts := strings.Split(message.Res, "/")
 	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
@@ -331,6 +342,7 @@ var RecallRole = func(user interface{}, message messages.Message) (response mess
 
 	body := map[string]interface{}{constants.RolesIdentifier: newRoles}
 	response.Body, hookBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
+	response.Body[constants.RolesIdentifier] = newRoles
 	return
 }
 
