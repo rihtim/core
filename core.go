@@ -16,6 +16,8 @@ import (
 	"github.com/rihtim/core/actors"
 	"github.com/rihtim/core/constants"
 	"github.com/Sirupsen/logrus"
+	"github.com/rihtim/core/keys"
+	"github.com/rihtim/core/basickeyadapter"
 )
 
 var Configuration map[string]interface{}
@@ -48,9 +50,10 @@ var InitWithConfig = func(fileName string) (err *utils.Error) {
 	}
 	log.Info("Database connection is established successfully.")
 
-	// creating root actor
-//	RootActor = actors.CreateActor(nil, "/")
-//	go RootActor.Run()
+	keysConfig, hasKeysConfig := Configuration["keys"]
+	if !hasKeysConfig {keysConfig = make(map[string]interface{})}
+	keys.Adapter = new(basickeyadapter.BasicKeyAdapter)
+	keys.Adapter.Init(keysConfig.(map[string]interface{}))
 
 	return
 }
@@ -101,10 +104,10 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-//	responseChannel := make(chan messages.Message)
-//	requestWrapper.Listener = responseChannel
+	//	responseChannel := make(chan messages.Message)
+	//	requestWrapper.Listener = responseChannel
 
-//	log.Debug("Sending request actor")
+	//	log.Debug("Sending request actor")
 	actor := actors.CreateActorForRes(requestWrapper.Res)
 	response, err := actors.HandleRequest(&actor, requestWrapper)
 
@@ -118,8 +121,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 			"errorMessage": err.Message,
 		}).Error("Got error.")
 	}
-//	RootActor.Inbox <- requestWrapper
-//	response := <-responseChannel
+	//	RootActor.Inbox <- requestWrapper
+	//	response := <-responseChannel
 
 
 	if response.Status != 0 {
@@ -139,7 +142,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		}
 		io.WriteString(w, string(bytes))
 	}
-//	close(responseChannel)
+	//	close(responseChannel)
 }
 
 
