@@ -9,6 +9,7 @@ import (
 	"github.com/rihtim/core/database"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/rihtim/core/constants"
+	"github.com/rihtim/core/keys"
 )
 
 var commandPermissionMap = map[string]map[string]bool{
@@ -29,36 +30,43 @@ var commandPermissionMap = map[string]map[string]bool{
 
 var IsGranted = func(collection string, requestWrapper messages.RequestWrapper) (isGranted bool, user map[string]interface{}, err *utils.Error) {
 
-	var permissions map[string]bool
-
-	var roles []string
-	user, err = getUser(requestWrapper)
-	if err != nil {
-		return
-	}
-
-	roles, err = getRolesOfUser(user)
-	if err != nil {
-		return
-	}
-
+	// grant the request for everyone for file resources
 	res := requestWrapper.Res
 	if strings.Index(res, constants.ResourceTypeFiles) == 0 {
 		isGranted = true
 		return
 	}
 
-	if strings.Count(res, "/") == 1 {
-		permissions, err = getPermissionsOnResources(roles, requestWrapper)
-	} else if strings.Count(res, "/") == 2 {
-		id := res[strings.LastIndex(res, "/") + 1:]
-		permissions, err = getPermissionsOnObject(collection, id, roles)
-	} else {
-		// TODO handle attribute uris
-		err = &utils.Error{http.StatusBadRequest, "Resource path cannot contain more than 2 levels: " + res}
+	// check whether the key adapter overrides the permissions or not
+	var permissions map[string]bool
+	permissions, err = keys.Adapter.CheckKeyPermissions(requestWrapper.Message.Headers)
+	if err != nil {
+		return
 	}
 
-	for k, _ := range commandPermissionMap[strings.ToLower(requestWrapper.Message.Command)] {
+	// if key adapter doesn't override the permissions, check for user permissions
+	if len(permissions) == 0 {
+
+		var roles []string
+		user, err = getUser(requestWrapper)
+		if err != nil {
+			return
+		}
+
+		roles, err = getRolesOfUser(user)
+		if err != nil {
+			return
+		}
+
+		if strings.Count(res, "/") == 1 {
+			permissions, err = getPermissionsOnResources(roles, requestWrapper)
+		} else if strings.Count(res, "/") == 2 {
+			id := res[strings.LastIndex(res, "/") + 1:]
+			permissions, err = getPermissionsOnObject(collection, id, roles)
+		}
+	}
+
+	for k, _ := range commandPermissionMap[requestWrapper.Message.Command] {
 		if permissions[k] {
 			isGranted = true
 			break

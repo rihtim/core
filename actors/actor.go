@@ -152,8 +152,7 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 
 	// check for method is allowed on the resource type
 	allowedMethods := AllowedMethodsOfActorTypes[a.actorType]
-	isMethodAllowed := allowedMethods[strings.ToLower(requestWrapper.Message.Command)]
-	if !isMethodAllowed {
+	if isMethodAllowed := allowedMethods[strings.ToLower(requestWrapper.Message.Command)]; !isMethodAllowed {
 		err = &utils.Error{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)}
 		return
 	}

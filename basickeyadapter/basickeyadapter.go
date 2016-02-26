@@ -44,6 +44,34 @@ func (ka BasicKeyAdapter) IsKeyValid(keyName, key string) (bool) {
 	return strings.EqualFold(ka.keys[keyName], key)
 }
 
+func (ka BasicKeyAdapter) CheckKeyPermissions(headers map[string][]string) (permissions map[string]bool, err *utils.Error) {
+
+	masterKeys, hasMasterKey := headers[HeaderKeyMaster]
+	if !hasMasterKey {
+		return
+	}
+
+	if !keys.Adapter.IsKeyValid(KeyMaster, masterKeys[0]) {
+		err = &utils.Error{http.StatusUnauthorized, "Master key is not valid."}
+		return
+	}
+
+	permissions = map[string]bool{
+		"create": true,
+		"query": true,
+		"get": true,
+		"update": true,
+		"delete": true,
+	}
+
+	masterKey := masterKeys[0]
+	log.WithFields(logrus.Fields{
+		"masterKey": masterKey[:10] + "..." + masterKey[len(masterKey)-10:len(masterKey)],
+	}).Warning("Request contains a valid master key.")
+
+	return
+}
+
 func generateKey() (string, *utils.Error) {
 
 	key := make([]byte, 32)
@@ -61,9 +89,12 @@ var RequireMasterKey = func(user map[string]interface{}, message messages.Messag
 		err = &utils.Error{http.StatusForbidden, http.StatusText(http.StatusForbidden)}
 		return
 	}
+
+	masterKey := masterKeys[0]
 	log.WithFields(logrus.Fields{
-		"masterKey": masterKeys[0],
+		"masterKey": masterKey[:10] + "..." + masterKey[len(masterKey)-10:len(masterKey)],
 	}).Warning("Request contains a valid master key.")
+
 	response = message
 	return
 }
