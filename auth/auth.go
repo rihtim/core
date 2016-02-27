@@ -10,6 +10,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/rihtim/core/constants"
 	"github.com/rihtim/core/keys"
+	"fmt"
 )
 
 var commandPermissionMap = map[string]map[string]bool{
@@ -116,6 +117,11 @@ func extractUserFromRequest(requestWrapper messages.RequestWrapper) (user map[st
 	authHeaders := requestWrapper.Message.Headers["Authorization"]
 	if authHeaders != nil && len(authHeaders) > 0 {
 		accessToken := authHeaders[0]
+		if strings.Index(accessToken, "Bearer ") != 0 {
+			err = &utils.Error{http.StatusBadRequest, "Authorization header must start with 'Bearer ' prefix."}
+			return
+		}
+		accessToken = accessToken[len("Bearer "):]
 		user, err = verifyToken(accessToken)
 	}
 	return
