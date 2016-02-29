@@ -10,7 +10,6 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/rihtim/core/constants"
 	"github.com/rihtim/core/keys"
-	"fmt"
 )
 
 var commandPermissionMap = map[string]map[string]bool{
