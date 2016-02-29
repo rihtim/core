@@ -176,14 +176,15 @@ func verifyToken(tokenString string) (userData map[string]interface{}, err *util
 
 	if tokenErr != nil {
 		err = &utils.Error{http.StatusInternalServerError, "Parsing token failed."}
+		return
 	}
 
 	if !token.Valid {
 		err = &utils.Error{http.StatusUnauthorized, "Token is not valid."}
+		return
 	}
 
 	userData = token.Claims["user"].(map[string]interface{})
-
 	return
 }
 

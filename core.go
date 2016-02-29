@@ -113,7 +113,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if response.Status == 0 {response.Status = err.Code}
-		if response.Body == nil {response.Body = map[string]interface{}{"message":err.Message}}
+		if response.Body == nil {response.Body = map[string]interface{}{"code":err.Code, "message":err.Message}}
 		log.WithFields(logrus.Fields{
 			"res": requestWrapper.Res,
 			"command": requestWrapper.Message.Command,

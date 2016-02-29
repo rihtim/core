@@ -5,7 +5,7 @@ import (
 	"strings"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
-"github.com/rihtim/core/log"
+	"github.com/rihtim/core/log"
 )
 
 type Interceptor func(user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error)
@@ -30,18 +30,19 @@ type interceptorIndex struct {
 	res             string
 	method          string
 	interceptorType InterceptorType
+	interceptor Interceptor
 }
 
-var interceptorsMap map[interceptorIndex]Interceptor
+var interceptorsMap []interceptorIndex
 
 var AddInterceptor = func(res, method string, interceptorType InterceptorType, interceptor Interceptor) {
 
 	if interceptorsMap == nil {
-		interceptorsMap = make(map[interceptorIndex]Interceptor)
+		interceptorsMap = make([]interceptorIndex, 0)
 	}
 
-	index := interceptorIndex{res, method, interceptorType}
-	interceptorsMap[index] = interceptor
+	index := interceptorIndex{res, method, interceptorType, interceptor}
+	interceptorsMap = append(interceptorsMap, index)
 
 	identifier := strings.Join([]string{typeNames[int(interceptorType)], method, res}, ", ")
 	log.Info("Interceptor added for preferences: " + identifier)
@@ -50,7 +51,7 @@ var AddInterceptor = func(res, method string, interceptorType InterceptorType, i
 var GetInterceptor = func(res, method string, interceptorType InterceptorType) (interceptors []Interceptor) {
 
 	interceptors = make([]Interceptor, 0)
-	for index, interceptor := range interceptorsMap {
+	for _, index := range interceptorsMap {
 		// skip if interceptor type doesn't match
 		if interceptorType != index.interceptorType {
 			continue
@@ -63,7 +64,7 @@ var GetInterceptor = func(res, method string, interceptorType InterceptorType) (
 		if !(strings.EqualFold(method, index.method) || strings.EqualFold("*", index.method)) {
 			continue
 		}
-		interceptors = append(interceptors, interceptor)
+		interceptors = append(interceptors, index.interceptor)
 	}
 
 	return interceptors
