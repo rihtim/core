@@ -1,4 +1,4 @@
-package modifier
+package coreinterceptors
 
 import (
 	"testing"
@@ -18,7 +18,7 @@ func TestExpandArray(t *testing.T) {
 			return false
 		}
 
-		_, err := ExpandArray(nil, "")
+		_, err := expandArray(nil, "")
 		So(isCalled, ShouldBeTrue)
 		So(err.Code, ShouldEqual, http.StatusBadRequest)
 
@@ -35,7 +35,7 @@ func TestExpandArray(t *testing.T) {
 			return true
 		}
 
-		_, err := ExpandArray(nil, "")
+		_, err := expandArray(nil, "")
 		So(err.Code, ShouldEqual, http.StatusInternalServerError)
 
 		// revert function to original
@@ -50,7 +50,7 @@ func TestExpandArray(t *testing.T) {
 			return true
 		}
 
-		_, err := ExpandArray(make(map[string]interface{}), "")
+		_, err := expandArray(make(map[string]interface{}), "")
 		So(err.Code, ShouldEqual, http.StatusInternalServerError)
 
 		// revert function to original

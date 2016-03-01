@@ -108,14 +108,14 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	//	requestWrapper.Listener = responseChannel
 
 	//	log.Debug("Sending request actor")
-	actor := actors.CreateActorForRes(requestWrapper.Res)
+	actor := actors.CreateActorForRes(requestWrapper.Message.Res)
 	response, err := actors.HandleRequest(&actor, requestWrapper)
 
 	if err != nil {
 		if response.Status == 0 {response.Status = err.Code}
 		if response.Body == nil {response.Body = map[string]interface{}{"code":err.Code, "message":err.Message}}
 		log.WithFields(logrus.Fields{
-			"res": requestWrapper.Res,
+			"res": requestWrapper.Message.Res,
 			"command": requestWrapper.Message.Command,
 			"errorCode": err.Code,
 			"errorMessage": err.Message,
@@ -153,7 +153,6 @@ func parseRequest(r *http.Request) (requestWrapper messages.RequestWrapper, err 
 		err = &utils.Error{http.StatusBadRequest, "Root path '/' cannot be requested directly. " }
 		return
 	}
-	requestWrapper.Res = res
 	requestWrapper.Message.Res = res
 	requestWrapper.Message.Command = strings.ToLower(r.Method)
 	requestWrapper.Message.Headers = r.Header

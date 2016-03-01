@@ -1,6 +1,7 @@
 package actors
 
 import (
+	"time"
 	"strings"
 	"net/http"
 	"encoding/json"
@@ -12,7 +13,6 @@ import (
 	"github.com/rihtim/core/interceptors"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/log"
-	"time"
 	"github.com/Sirupsen/logrus"
 	"github.com/rihtim/core/keys"
 	"github.com/rihtim/core/validator"
@@ -59,7 +59,7 @@ var restrictedFieldsForCreate = map[string]bool{
 }
 
 var CreateActor = func(parent *Actor, res string) (a Actor) {
-	log.Debug("Creating actor for " + res)
+//	log.Debug("Creating actor for " + res)
 
 	if parent == nil {
 		a.actorType = constants.ActorTypeRoot
@@ -111,7 +111,7 @@ func (a *Actor) Run() {
 		case requestWrapper := <-a.Inbox:
 			log.Debug(a.res + ": Received a message.")
 
-			if requestWrapper.Res == a.res {
+			if requestWrapper.Message.Res == a.res {
 				// if the resource of the message is this actor's resource
 
 				messageString, mErr := json.Marshal(requestWrapper.Message)
@@ -142,7 +142,7 @@ func (a *Actor) Run() {
 				log.Info(a.res + ": Forwarding message to child actor.")
 
 				// if the resource belongs to a children actor
-				childRes := getChildRes(requestWrapper.Res, a.res)
+				childRes := getChildRes(requestWrapper.Message.Res, a.res)
 
 				actor, exists := a.children[childRes]
 				if !exists {
@@ -162,7 +162,7 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 
 	start := time.Now()
 	log.WithFields(logrus.Fields{
-		"res": requestWrapper.Res,
+		"res": requestWrapper.Message.Res,
 		"command": requestWrapper.Message.Command,
 	}).Info("Received request.")
 
@@ -239,7 +239,7 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 
 	elapsed := time.Since(start)
 	log.WithFields(logrus.Fields{
-		"res": requestWrapper.Res,
+		"res": requestWrapper.Message.Res,
 		"command": requestWrapper.Message.Command,
 		"duration": elapsed.Nanoseconds() / (int64(time.Millisecond) / int64(time.Nanosecond)),
 	}).Info("Returning response.")

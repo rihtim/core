@@ -30,7 +30,7 @@ var commandPermissionMap = map[string]map[string]bool{
 var IsGranted = func(collection string, requestWrapper messages.RequestWrapper) (isGranted bool, user map[string]interface{}, err *utils.Error) {
 
 	// grant the request for everyone for file resources
-	res := requestWrapper.Res
+	res := requestWrapper.Message.Res
 	if strings.Index(res, constants.ResourceTypeFiles) == 0 {
 		isGranted = true
 		return

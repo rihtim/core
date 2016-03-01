@@ -19,7 +19,6 @@ type Message struct {
 }
 
 type RequestWrapper struct {
-	Res      string
 	Message  Message
 	Listener chan Message
 }
