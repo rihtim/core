@@ -9,7 +9,6 @@ import (
 	"github.com/rihtim/core/database"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/rihtim/core/constants"
-	"github.com/rihtim/core/keys"
 )
 
 var commandPermissionMap = map[string]map[string]bool{
@@ -37,33 +36,24 @@ var IsGranted = func(collection string, requestWrapper messages.RequestWrapper) 
 		return
 	}
 
-	// check whether the key adapter overrides the permissions or not
+	// if key adapter doesn't override the permissions, check for user permissions
 	var permissions map[string]bool
-	permissions, err = keys.Adapter.CheckKeyPermissions(requestWrapper.Message.Headers)
+	var roles []string
+	user, err = getUser(requestWrapper)
 	if err != nil {
 		return
 	}
 
-	// if key adapter doesn't override the permissions, check for user permissions
-	if len(permissions) == 0 {
+	roles, err = getRolesOfUser(user)
+	if err != nil {
+		return
+	}
 
-		var roles []string
-		user, err = getUser(requestWrapper)
-		if err != nil {
-			return
-		}
-
-		roles, err = getRolesOfUser(user)
-		if err != nil {
-			return
-		}
-
-		if strings.Count(res, "/") == 1 {
-			permissions, err = getPermissionsOnResources(roles, requestWrapper)
-		} else if strings.Count(res, "/") == 2 {
-			id := res[strings.LastIndex(res, "/") + 1:]
-			permissions, err = getPermissionsOnObject(collection, id, roles)
-		}
+	if strings.Count(res, "/") == 1 {
+		permissions, err = getPermissionsOnResources(roles, requestWrapper)
+	} else if strings.Count(res, "/") == 2 {
+		id := res[strings.LastIndex(res, "/") + 1:]
+		permissions, err = getPermissionsOnObject(collection, id, roles)
 	}
 
 	for k, _ := range commandPermissionMap[requestWrapper.Message.Command] {

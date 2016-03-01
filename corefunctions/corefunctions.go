@@ -33,7 +33,7 @@ var fruits = []string{"apples", "appricots", "avocados", "bananas", "cherries", 
 	"olives", "oranges", "papayas", "peaches", "pears", "plums", "pumpkins", "pomelos", "satsumas", "tomatoes"}
 var quantities = []string{"two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"}
 
-var Register = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+var Register = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
 
 	_, hasEmail := message.Body["email"]
 	password, hasPassword := message.Body["password"]
@@ -56,7 +56,7 @@ var Register = func(user interface{}, message messages.Message) (response messag
 	}
 	message.Body["password"] = string(hashedPassword)
 
-	response.Body, hookBody, err = database.Adapter.Create(constants.ClassUsers, message.Body)
+	response.Body, finalInterceptorBody, err = database.Adapter.Create(constants.ClassUsers, message.Body)
 	if err != nil {
 		return
 	}
@@ -73,7 +73,7 @@ var Register = func(user interface{}, message messages.Message) (response messag
 	return
 }
 
-var Login = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+var Login = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
 
 	_, hasEmail := message.Body["email"]
 	password, hasPassword := message.Body["password"]
@@ -110,7 +110,7 @@ var Login = func(user interface{}, message messages.Message) (response messages.
 	return
 }
 
-var ChangePassword = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+var ChangePassword = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
 
 	userAsMap := user.(map[string]interface{})
 
@@ -150,7 +150,7 @@ var ChangePassword = func(user interface{}, message messages.Message) (response 
 	return
 }
 
-var ResetPassword = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+var ResetPassword = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
 
 	if ResetPasswordConfig == nil {
 		err = &utils.Error{http.StatusInternalServerError, "Email reset configuration is not defined."}
@@ -199,7 +199,7 @@ var ResetPassword = func(user interface{}, message messages.Message) (response m
 	return
 }
 
-var GrantRole = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+var GrantRole = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
 
 	if len(user.(map[string]interface{})) == 0 {
 		err = &utils.Error{http.StatusUnauthorized, "Grant role request requires access token."}
@@ -266,12 +266,12 @@ var GrantRole = func(user interface{}, message messages.Message) (response messa
 	}
 
 	body := map[string]interface{}{constants.RolesIdentifier: roles}
-	response.Body, hookBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
+	response.Body, finalInterceptorBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
 	response.Body[constants.RolesIdentifier] = roles
 	return
 }
 
-var RecallRole = func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+var RecallRole = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
 
 	if len(user.(map[string]interface{})) == 0 {
 		err = &utils.Error{http.StatusUnauthorized, "Grant role request requires access token."}
@@ -341,7 +341,7 @@ var RecallRole = func(user interface{}, message messages.Message) (response mess
 	}
 
 	body := map[string]interface{}{constants.RolesIdentifier: newRoles}
-	response.Body, hookBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
+	response.Body, finalInterceptorBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
 	response.Body[constants.RolesIdentifier] = newRoles
 	return
 }

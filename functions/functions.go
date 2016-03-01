@@ -8,7 +8,7 @@ import (
 "strings"
 )
 
-type FunctionHandler func(user interface{}, message messages.Message) (response messages.Message, hookBody map[string]interface{}, err *utils.Error)
+type FunctionHandler func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error)
 
 var functionHandlers map[string]FunctionHandler
 

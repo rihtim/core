@@ -8,6 +8,7 @@ import (
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/constants"
+	"fmt"
 )
 
 var ExpandArray = func(data map[string]interface{}, config string) (result map[string]interface{}, err *utils.Error) {
@@ -52,20 +53,29 @@ func ExpandItem(data map[string]interface{}, config string) (result map[string]i
 	}
 
 	fields := seperateFields(config)
+	fmt.Println("fields: ", fields)
 
 	// expand direct children
 	for _, field := range fields {
 
 		directChildField, childsSubFields := getChildFieldAndSubFields(field)
+		fmt.Println(directChildField, childsSubFields)
 
 		reference := data[directChildField]
+		fmt.Println("data: ", reference)
+		fmt.Println("directChildField: ", directChildField)
+		fmt.Println("reference: ", reference)
 		if t := reflect.TypeOf(reference); reference == nil || t == nil || t.Kind() != reflect.Map {
+			fmt.Println("here")
 			continue
 		}
+		fmt.Println(reference)
 
 		var expandedObject map[string]interface{}
 		if isValidReference(reference) {
 			expandedObject, err = fetchData(reference.(map[string]interface{}))
+			fmt.Println(expandedObject)
+
 			if err != nil {
 				return
 			}

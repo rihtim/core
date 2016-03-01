@@ -44,7 +44,7 @@ func (ka BasicKeyAdapter) IsKeyValid(keyName, key string) (bool) {
 	return strings.EqualFold(ka.keys[keyName], key)
 }
 
-func (ka BasicKeyAdapter) CheckKeyPermissions(headers map[string][]string) (permissions map[string]bool, err *utils.Error) {
+func (ka BasicKeyAdapter) CheckKeyPermissions(headers map[string][]string) (isGrantedByKey bool, err *utils.Error) {
 
 	masterKeys, hasMasterKey := headers[HeaderKeyMaster]
 	if !hasMasterKey {
@@ -56,13 +56,7 @@ func (ka BasicKeyAdapter) CheckKeyPermissions(headers map[string][]string) (perm
 		return
 	}
 
-	permissions = map[string]bool{
-		"create": true,
-		"query": true,
-		"get": true,
-		"update": true,
-		"delete": true,
-	}
+	isGrantedByKey = true
 
 	masterKey := masterKeys[0]
 	log.WithFields(logrus.Fields{

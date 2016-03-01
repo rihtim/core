@@ -11,10 +11,11 @@ import (
 	"github.com/rihtim/core/auth"
 	"github.com/rihtim/core/interceptors"
 	"github.com/rihtim/core/database"
-	"github.com/rihtim/core/modifier"
 	"github.com/rihtim/core/log"
 	"time"
 	"github.com/Sirupsen/logrus"
+	"github.com/rihtim/core/keys"
+	"github.com/rihtim/core/validator"
 )
 
 type Actor struct {
@@ -42,6 +43,20 @@ var AllowedMethodsOfActorTypes = map[string]map[string]bool{
 		"post": true,
 	},
 };
+
+var restrictedFieldsForUpdate = map[string]bool{
+	constants.IdIdentifier: false,
+	constants.AclIdentifier: false,
+	constants.RolesIdentifier: false,
+	"createdAt": false,
+	"updatedAt": false,
+}
+
+var restrictedFieldsForCreate = map[string]bool{
+	constants.IdIdentifier: false,
+	"createdAt": false,
+	"updatedAt": false,
+}
 
 var CreateActor = func(parent *Actor, res string) (a Actor) {
 	log.Debug("Creating actor for " + res)
@@ -144,6 +159,7 @@ func (a *Actor) Run() {
 }
 
 var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (response messages.Message, err *utils.Error) {
+
 	start := time.Now()
 	log.WithFields(logrus.Fields{
 		"res": requestWrapper.Res,
@@ -165,15 +181,24 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 		return
 	}
 
-	// check permissions of user on this resource. continue anyway if the actor type is ActorTypeFunctions
-	isGranted, user, authErr := auth.IsGranted(a.class, requestWrapper)
-	if !isGranted && !strings.EqualFold(a.actorType, constants.ActorTypeFunctions) {
-		if authErr != nil {
-			err = authErr
-		} else {
-			err = &utils.Error{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}
-		}
+	// check whether the headers give special permissions to perform the request
+	var isGrantedByKey bool
+	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(requestWrapper.Message.Headers)
+	if err != nil {
 		return
+	}
+
+	var user map[string]interface{}
+	if !isGrantedByKey {
+		// check permissions of user if request is not granted by keys. continue anyway if the actor type is ActorTypeFunctions
+		var isGranted bool
+		isGranted, user, err = auth.IsGranted(a.class, requestWrapper)
+		if !isGranted && !strings.EqualFold(a.actorType, constants.ActorTypeFunctions) {
+			if err == nil {
+				err = &utils.Error{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}
+			}
+			return
+		}
 	}
 
 	// call interceptors before execution
@@ -182,6 +207,7 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 		return
 	}
 
+	// execute request
 	if (strings.EqualFold(a.actorType, constants.ActorTypeFunctions)) {
 		functionHandler := functions.GetFunctionHandler(message.Res)
 		response, finalInterceptorBody, err = functionHandler(user, message)
@@ -199,7 +225,9 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 	}
 
 	// call interceptors after execution
-	message, err = interceptors.ExecuteInterceptors(message.Res, message.Command, interceptors.AFTER_EXEC, user, message)
+	afterExecInterceptorMessage := copyMessage(message)
+	afterExecInterceptorMessage.Body = response.Body
+	message, err = interceptors.ExecuteInterceptors(message.Res, message.Command, interceptors.AFTER_EXEC, user, afterExecInterceptorMessage)
 	if err != nil {
 		return
 	}
@@ -213,17 +241,22 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 	log.WithFields(logrus.Fields{
 		"res": requestWrapper.Res,
 		"command": requestWrapper.Message.Command,
-		"duration": elapsed.Nanoseconds() / (int64(time.Millisecond)/int64(time.Nanosecond)),
+		"duration": elapsed.Nanoseconds() / (int64(time.Millisecond) / int64(time.Nanosecond)),
 	}).Info("Returning response.")
 	return
 }
 
-var handlePost = func(a *Actor, requestWrapper messages.RequestWrapper, user interface{}) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+var handlePost = func(a *Actor, requestWrapper messages.RequestWrapper, user interface{}) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+
+	err = validator.ValidateInputFields(restrictedFieldsForCreate, requestWrapper.Message.Body)
+	if err != nil {
+		return
+	}
 
 	if (!strings.EqualFold(a.class, constants.ClassFiles)) {
-		response.Body, hookBody, err = database.Adapter.Create(a.class, requestWrapper.Message.Body)
+		response.Body, finalInterceptorBody, err = database.Adapter.Create(a.class, requestWrapper.Message.Body)
 	} else {
-		response.Body, hookBody, err = database.Adapter.CreateFile(requestWrapper.Message.ReqBodyRaw)
+		response.Body, finalInterceptorBody, err = database.Adapter.CreateFile(requestWrapper.Message.ReqBodyRaw)
 	}
 
 	if err == nil {
@@ -254,24 +287,26 @@ var handleGet = func(a *Actor, requestWrapper messages.RequestWrapper) (response
 	}
 
 	// TODO remove the part below and create a 'during' interceptor for expanding fields
-	if requestWrapper.Message.Parameters["expand"] != nil {
+	/*if requestWrapper.Message.Parameters["expand"] != nil {
 		expandConfig := requestWrapper.Message.Parameters["expand"][0]
 		if _, hasDataArray := response.Body["results"]; hasDataArray {
 			response.Body, err = modifier.ExpandArray(response.Body, expandConfig)
 		} else {
 			response.Body, err = modifier.ExpandItem(response.Body, expandConfig)
 		}
-	}
+	}*/
 	return
 }
 
-var handlePut = func(a *Actor, requestWrapper messages.RequestWrapper) (response messages.Message, hookBody map[string]interface{}, err *utils.Error) {
+var handlePut = func(a *Actor, requestWrapper messages.RequestWrapper) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
 
-	if strings.EqualFold(a.actorType, constants.ActorTypeModel) {
-		// update object
-		id := requestWrapper.Message.Res[strings.LastIndex(requestWrapper.Message.Res, "/") + 1:]
-		response.Body, hookBody, err = database.Adapter.Update(a.class, id, requestWrapper.Message.Body)
+	err = validator.ValidateInputFields(restrictedFieldsForUpdate, requestWrapper.Message.Body)
+	if err != nil {
+		return
 	}
+
+	id := requestWrapper.Message.Res[strings.LastIndex(requestWrapper.Message.Res, "/") + 1:]
+	response.Body, finalInterceptorBody, err = database.Adapter.Update(a.class, id, requestWrapper.Message.Body)
 	return
 }
 
