@@ -35,25 +35,17 @@ var Expander = func(user map[string]interface{}, message messages.Message) (resp
 			response.Body, err = expandItem(message.Body, message, expandConfig)
 		}
 	}
-
-	/*if _, hasDataArray := response.Body["results"]; hasDataArray {
-		response.Body, err = modifier.ExpandArray(response.Body, expandConfig)
-	} else {
-		response.Body, err = modifier.ExpandItem(response.Body, expandConfig)
-	}*/
-
 	return
 }
 
 var Filter = func(user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error) {
 
+	// TODO add the filter parameter to request and handle it
+
 	response = message
 	if FilterConfig == nil {
 		return
 	}
-
-	//	if message.Parameters["filter"] != nil {
-	//		filterConfig := message.Parameters["filter"][0]
 
 	class := strings.Split(message.Res, "/")[1]
 	if resultsArray, hasResultsArray := response.Body[constants.ListIdentifier].([]map[string]interface{}); hasResultsArray {
