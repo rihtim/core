@@ -13,6 +13,8 @@ import (
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/constants"
+"github.com/rihtim/core/validator"
+"gopkg.in/mgo.v2/bson"
 )
 
 /**
@@ -33,15 +35,22 @@ var fruits = []string{"apples", "appricots", "avocados", "bananas", "cherries", 
 	"olives", "oranges", "papayas", "peaches", "pears", "plums", "pumpkins", "pomelos", "satsumas", "tomatoes"}
 var quantities = []string{"two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"}
 
+var fieldsForRegister = map[string]bool{
+	constants.IdIdentifier: false,
+	constants.AclIdentifier: false,
+	"createdAt": false,
+	"updatedAt": false,
+	"email": true,
+	"password": true,
+}
+
 var Register = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
 
-	_, hasEmail := message.Body["email"]
-	password, hasPassword := message.Body["password"]
-
-	if !hasEmail || !hasPassword {
-		err = &utils.Error{http.StatusBadRequest, "Email and password must be provided."}
+	err = validator.ValidateInputFields(fieldsForRegister, message.Body)
+	if err != nil {
 		return
 	}
+	password := message.Body["password"]
 
 	existingAccount, _ := getAccountData(message)
 	if existingAccount != nil {
@@ -55,6 +64,19 @@ var Register = func(user interface{}, message messages.Message) (response messag
 		return
 	}
 	message.Body["password"] = string(hashedPassword)
+
+	id := bson.NewObjectId().Hex()
+	userRole := "user:" + id
+	message.Body["_id"] = id
+	message.Body[constants.AclIdentifier] = map[string]interface{}{
+		constants.All: map[string]bool{
+			"get": true,
+		},
+		userRole: map[string]bool{
+			"get": true,
+			"update": true,
+		},
+	}
 
 	response.Body, finalInterceptorBody, err = database.Adapter.Create(constants.ClassUsers, message.Body)
 	if err != nil {

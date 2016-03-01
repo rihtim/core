@@ -10,6 +10,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"github.com/rihtim/core/utils"
+	"github.com/rihtim/core/constants"
 )
 
 type MongoAdapter struct {
@@ -86,8 +87,9 @@ func (ma MongoAdapter) Create(collection string, data map[string]interface{}) (r
 	id := bson.NewObjectId()
 	createdAt := int32(time.Now().Unix())
 
-	// additional fields
-	data["_id"] = id.Hex()
+	if _, hasId := data[constants.IdIdentifier]; !hasId {
+		data["_id"] = id.Hex()
+	}
 	data["createdAt"] = createdAt
 	data["updatedAt"] = createdAt
 
@@ -168,7 +170,7 @@ func (ma MongoAdapter) Query(collection string, parameters map[string][]string) 
 	}
 
 	if getErr != nil {
-		err = &utils.Error{http.StatusInternalServerError, "Getting items failed. Reason: " +  getErr.Error()};
+		err = &utils.Error{http.StatusInternalServerError, "Getting items failed. Reason: " + getErr.Error()};
 		return
 	}
 
