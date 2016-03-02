@@ -286,14 +286,14 @@ func (ma MongoAdapter) GetFile(id string) (response []byte, err *utils.Error) {
 
 	file, mongoErr := sessionCopy.DB(ma.database).GridFS("fs").OpenId(id)
 	if mongoErr != nil {
-		err = &utils.Error{http.StatusNotFound, "File not found."};
+		err = &utils.Error{http.StatusNotFound, "Getting file failed. Reason: " + mongoErr.Error()};
 		return
 	}
 
 	response = make([]byte, file.Size())
 	_, printErr := file.Read(response)
 	if printErr != nil {
-		err = &utils.Error{http.StatusInternalServerError, "Printing file failed."};
+		err = &utils.Error{http.StatusInternalServerError, "Printing file failed. Reason: " + printErr.Error()};
 	}
 	return
 }
