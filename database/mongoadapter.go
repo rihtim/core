@@ -83,11 +83,9 @@ func (ma MongoAdapter) Create(collection string, data map[string]interface{}) (r
 	defer sessionCopy.Close()
 	connection := sessionCopy.DB(ma.database).C(collection)
 
-	// generate id and createdAt time
-	id := bson.NewObjectId()
 	createdAt := int32(time.Now().Unix())
-
 	if _, hasId := data[constants.IdIdentifier]; !hasId {
+		id := bson.NewObjectId()
 		data["_id"] = id.Hex()
 	}
 	data["createdAt"] = createdAt
@@ -101,7 +99,7 @@ func (ma MongoAdapter) Create(collection string, data map[string]interface{}) (r
 	}
 
 	response = map[string]interface{}{
-		"_id": id.Hex(),
+		"_id": data["_id"],
 		"createdAt": createdAt,
 	}
 	hookBody = data

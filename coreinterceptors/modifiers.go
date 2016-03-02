@@ -18,13 +18,15 @@ var Expander = func(user map[string]interface{}, message messages.Message) (resp
 	response = message
 	if message.Parameters["expand"] != nil {
 
+		tempCache := make(map[string]interface{})
+
 		expandConfig := message.Parameters["expand"][0]
 		if resultsArray, hasResultsArray := response.Body[constants.ListIdentifier].([]map[string]interface{}); hasResultsArray {
 			for i, item := range resultsArray {
 
 				var expandedItem map[string]interface{}
 				var expandErr *utils.Error
-				expandedItem, expandErr = expandItem(item, message, expandConfig)
+				expandedItem, expandErr = expandItem(item, message, expandConfig, tempCache)
 				if expandErr != nil {
 					resultsArray[i] = map[string]interface{}{"code": expandErr.Code, "message": expandErr.Message}
 				} else {
@@ -32,7 +34,7 @@ var Expander = func(user map[string]interface{}, message messages.Message) (resp
 				}
 			}
 		} else {
-			response.Body, err = expandItem(message.Body, message, expandConfig)
+			response.Body, err = expandItem(message.Body, message, expandConfig, tempCache)
 		}
 	}
 	return
@@ -161,7 +163,7 @@ func expandItem(data map[string]interface{}, config string) (result map[string]i
 }
 */
 
-func expandItem(item map[string]interface{}, message messages.Message, config string) (result map[string]interface{}, err *utils.Error) {
+func expandItem(item map[string]interface{}, message messages.Message, config string, cache map[string]interface{}) (result map[string]interface{}, err *utils.Error) {
 
 	if !isValidExpandConfig(config) {
 		err = &utils.Error{http.StatusBadRequest, "Expand config is not valid."}
@@ -182,8 +184,7 @@ func expandItem(item map[string]interface{}, message messages.Message, config st
 
 		var expandedObject map[string]interface{}
 		if isValidReference(reference) {
-			expandedObject, err = fetchData(reference.(map[string]interface{}), message)
-
+			expandedObject, err = fetchData(reference.(map[string]interface{}), message, cache)
 			if err != nil {
 				return
 			}
@@ -195,7 +196,7 @@ func expandItem(item map[string]interface{}, message messages.Message, config st
 		if len(childsSubFields) > 0 {
 
 			var expandedChild map[string]interface{}
-			expandedChild, err = expandItem(expandedObject, message, childsSubFields)
+			expandedChild, err = expandItem(expandedObject, message, childsSubFields, cache)
 			if err != nil {
 				return
 			}
@@ -267,7 +268,7 @@ var isValidReference = func(reference interface{}) (bool) {
 	return len(referenceAsMap) == 3 && hasType && hasId && hasClass && _type == "reference"
 }
 
-var fetchData = func(data map[string]interface{}, message messages.Message) (object map[string]interface{}, err *utils.Error) {
+var fetchData = func(data map[string]interface{}, message messages.Message, cache map[string]interface{}) (object map[string]interface{}, err *utils.Error) {
 
 	fieldType := reflect.TypeOf(data[constants.IdIdentifier])
 
@@ -280,20 +281,25 @@ var fetchData = func(data map[string]interface{}, message messages.Message) (obj
 	className := data["_class"].(string)
 
 	res := "/" + className + "/" + id
-	actor := actors.CreateActorForRes(res)
+	if item, hasItemInCache := cache[res]; hasItemInCache {
+		object = item.(map[string]interface{})
+	} else {
+		actor := actors.CreateActorForRes(res)
 
-	requestWrapper := messages.RequestWrapper{}
-	requestWrapper.Message.Res = res
-	requestWrapper.Message.Command = constants.CommandGet
-	requestWrapper.Message.Headers = message.Headers
+		requestWrapper := messages.RequestWrapper{}
+		requestWrapper.Message.Res = res
+		requestWrapper.Message.Command = constants.CommandGet
+		requestWrapper.Message.Headers = message.Headers
 
-	var response messages.Message
-	response, err = actors.HandleRequest(&actor, requestWrapper)
-	if err != nil {
-		object = map[string]interface{}{"code": err.Code, "message": err.Message}
-		return
+		var response messages.Message
+		response, err = actors.HandleRequest(&actor, requestWrapper)
+		if err != nil {
+			object = map[string]interface{}{"code": err.Code, "message": err.Message}
+			return
+		}
+		object = response.Body
+		cache[res] = object
 	}
-	object = response.Body
 	return
 }
 /*
