@@ -13,8 +13,9 @@ import (
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/constants"
-"github.com/rihtim/core/validator"
-"gopkg.in/mgo.v2/bson"
+	"github.com/rihtim/core/validator"
+	"gopkg.in/mgo.v2/bson"
+	"github.com/rihtim/core/keys"
 )
 
 /**
@@ -223,7 +224,14 @@ var ResetPassword = func(user interface{}, message messages.Message) (response m
 
 var GrantRole = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
 
-	if len(user.(map[string]interface{})) == 0 {
+	// check whether the headers give special permissions to perform the request
+	var isGrantedByKey bool
+	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(message.Headers)
+	if err != nil {
+		return
+	}
+
+	if !isGrantedByKey && len(user.(map[string]interface{})) == 0 {
 		err = &utils.Error{http.StatusUnauthorized, "Grant role request requires access token."}
 		return
 	}
@@ -246,26 +254,28 @@ var GrantRole = func(user interface{}, message messages.Message) (response messa
 		return
 	}
 
-	userAsMap := user.(map[string]interface{})
-	requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
-	if !requestOwnersHasRoles {
-		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
-		return
-	}
+	if !isGrantedByKey {
+		userAsMap := user.(map[string]interface{})
+		requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
+		if !requestOwnersHasRoles {
+			err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
+			return
+		}
 
-	matchingRoleCount := 0
-	for _, roleToGrant := range rolesToGrant.([]interface{}) {
-		for _, userRole := range requestOwnersRoles.([]interface{}) {
-			if strings.EqualFold(roleToGrant.(string), userRole.(string)) {
-				matchingRoleCount++
-				continue
+		matchingRoleCount := 0
+		for _, roleToGrant := range rolesToGrant.([]interface{}) {
+			for _, userRole := range requestOwnersRoles.([]interface{}) {
+				if strings.EqualFold(roleToGrant.(string), userRole.(string)) {
+					matchingRoleCount++
+					continue
+				}
 			}
 		}
-	}
 
-	if matchingRoleCount != len(rolesToGrant.([]interface{})) {
-		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to grant the given roles."}
-		return
+		if matchingRoleCount != len(rolesToGrant.([]interface{})) {
+			err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to grant the given roles."}
+			return
+		}
 	}
 
 	var userToUpdate map[string]interface{}
@@ -295,7 +305,14 @@ var GrantRole = func(user interface{}, message messages.Message) (response messa
 
 var RecallRole = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
 
-	if len(user.(map[string]interface{})) == 0 {
+	// check whether the headers give special permissions to perform the request
+	var isGrantedByKey bool
+	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(message.Headers)
+	if err != nil {
+		return
+	}
+
+	if !isGrantedByKey && len(user.(map[string]interface{})) == 0 {
 		err = &utils.Error{http.StatusUnauthorized, "Grant role request requires access token."}
 		return
 	}
@@ -318,26 +335,28 @@ var RecallRole = func(user interface{}, message messages.Message) (response mess
 		return
 	}
 
-	userAsMap := user.(map[string]interface{})
-	requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
-	if !requestOwnersHasRoles {
-		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
-		return
-	}
+	if !isGrantedByKey {
+		userAsMap := user.(map[string]interface{})
+		requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
+		if !requestOwnersHasRoles {
+			err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
+			return
+		}
 
-	matchingRoleCount := 0
-	for _, roleToRecall := range rolesToRecall.([]interface{}) {
-		for _, userRole := range requestOwnersRoles.([]interface{}) {
-			if strings.EqualFold(roleToRecall.(string), userRole.(string)) {
-				matchingRoleCount++
-				continue
+		matchingRoleCount := 0
+		for _, roleToRecall := range rolesToRecall.([]interface{}) {
+			for _, userRole := range requestOwnersRoles.([]interface{}) {
+				if strings.EqualFold(roleToRecall.(string), userRole.(string)) {
+					matchingRoleCount++
+					continue
+				}
 			}
 		}
-	}
 
-	if matchingRoleCount != len(rolesToRecall.([]interface{})) {
-		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to recall the given roles."}
-		return
+		if matchingRoleCount != len(rolesToRecall.([]interface{})) {
+			err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to recall the given roles."}
+			return
+		}
 	}
 
 	var userToUpdate map[string]interface{}
