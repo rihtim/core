@@ -77,92 +77,6 @@ var filterItem = func(class string, item map[string]interface{}) (map[string]int
 	return item
 }
 
-/*var expandArray = func(data map[string]interface{}, config string) (result map[string]interface{}, err *utils.Error) {
-
-	if !isValidExpandConfig(config) {
-		err = &utils.Error{http.StatusBadRequest, "Expand config is not valid."}
-		return
-	}
-
-	if data == nil {
-		err = &utils.Error{http.StatusInternalServerError, "Data is nil."}
-		return
-	}
-
-	dataArrayInterface, hasDataArray := data[constants.ListIdentifier]
-	if !hasDataArray {
-		err = &utils.Error{http.StatusInternalServerError, "Array not found at '" + constants.ListIdentifier + "' field."}
-		return
-	}
-	dataArray := dataArrayInterface.([]map[string]interface{})
-
-	resultArray := make([]map[string]interface{}, len(dataArray))
-	for i, v := range dataArray {
-		var expandedObject map[string]interface{}
-		expandedObject, err = expandItem(map[string]interface{}(v), config)
-		if err != nil {
-			return
-		}
-		resultArray[i] = expandedObject
-	}
-
-	result = make(map[string]interface{})
-	result[constants.ListIdentifier] = resultArray
-	return
-}*/
-/*
-
-func expandItem(data map[string]interface{}, config string) (result map[string]interface{}, err *utils.Error) {
-
-	if !isValidExpandConfig(config) {
-		err = &utils.Error{http.StatusBadRequest, "Expand config is not valid."}
-		return
-	}
-
-	fields := seperateFields(config)
-
-	// expand direct children
-	for _, field := range fields {
-
-		directChildField, childsSubFields := getChildFieldAndSubFields(field)
-
-		reference := data[directChildField]
-		if t := reflect.TypeOf(reference); reference == nil || t == nil || t.Kind() != reflect.Map {
-			continue
-		}
-
-		var expandedObject map[string]interface{}
-		if isValidReference(reference) {
-			expandedObject, err = fetchData(reference.(map[string]interface{}))
-
-			if err != nil {
-				return
-			}
-		} else {
-			expandedObject = reference.(map[string]interface{})
-		}
-
-		// expanding children
-		if len(childsSubFields) > 0 {
-
-			var expandedChild map[string]interface{}
-			expandedChild, err = expandItem(expandedObject, childsSubFields)
-			if err != nil {
-				return
-			}
-			_ = expandedChild
-			//			expandedObject[trimmedField] = expandedChild
-		}
-
-		// TODO don't modify original object
-		data[directChildField] = expandedObject
-	}
-
-	result = data
-	return
-}
-*/
-
 func expandItem(item map[string]interface{}, message messages.Message, config string, cache map[string]interface{}) (result map[string]interface{}, err *utils.Error) {
 
 	if !isValidExpandConfig(config) {
@@ -178,30 +92,53 @@ func expandItem(item map[string]interface{}, message messages.Message, config st
 		directChildField, childsSubFields := getChildFieldAndSubFields(field)
 
 		reference := item[directChildField]
-		if t := reflect.TypeOf(reference); reference == nil || t == nil || t.Kind() != reflect.Map {
+		referenceObjectType := reflect.TypeOf(reference)
+
+		if reference == nil || referenceObjectType == nil || !(referenceObjectType.Kind() != reflect.Map || referenceObjectType.Kind() != reflect.Slice) {
 			continue
 		}
 
-		var expandedObject map[string]interface{}
-		if isValidReference(reference) {
+		var expandedObject interface{}
+		if referenceObjectType.Kind() == reflect.Map && isValidReference(reference) {
 			expandedObject, err = fetchData(reference.(map[string]interface{}), message, cache)
 			if err != nil {
-				return
+				expandedObject = map[string]interface{}{"error": err.Message, "code": err.Code}
 			}
+		} else if referenceObjectType.Kind() == reflect.Slice {
+
+			arrayField := reference.([]interface{})
+			if len(arrayField) > 0 {
+
+				var expandedItem map[string]interface{}
+				for i, arrayItem := range arrayField {
+					if !isValidReference(arrayItem) {
+						break
+					}
+
+					expandedItem, err = fetchData(arrayItem.(map[string]interface{}), message, cache)
+					if err != nil {
+						expandedItem = map[string]interface{}{"error": err.Message, "code": err.Code}
+					}
+					arrayField[i] = expandedItem
+
+				}
+				// TODO expand fields of array items
+				expandedObject = arrayField
+			}
+
 		} else {
 			expandedObject = reference.(map[string]interface{})
 		}
 
 		// expanding children
-		if len(childsSubFields) > 0 {
+		if referenceObjectType.Kind() == reflect.Map && len(childsSubFields) > 0 {
 
 			var expandedChild map[string]interface{}
-			expandedChild, err = expandItem(expandedObject, message, childsSubFields, cache)
+			expandedChild, err = expandItem(expandedObject.(map[string]interface{}), message, childsSubFields, cache)
 			if err != nil {
 				return
 			}
 			_ = expandedChild
-			//			expandedObject[trimmedField] = expandedChild
 		}
 
 		// TODO don't modify original object
@@ -302,22 +239,3 @@ var fetchData = func(data map[string]interface{}, message messages.Message, cach
 	}
 	return
 }
-/*
-var fetchData = func(data map[string]interface{}) (object map[string]interface{}, err *utils.Error) {
-
-	fieldType := reflect.TypeOf(data[constants.IdIdentifier])
-
-	var id string
-	if fieldType.Kind() == reflect.String {
-		id = data[constants.IdIdentifier].(string)
-	} else {
-		id = data[constants.IdIdentifier].(bson.ObjectId).Hex()
-	}
-	className := data["_class"].(string)
-
-	object, err = database.Adapter.Get(className, id)
-	if err != nil {
-		return
-	}
-	return
-}*/
