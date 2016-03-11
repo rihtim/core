@@ -16,6 +16,7 @@ import (
 	"github.com/rihtim/core/validator"
 	"gopkg.in/mgo.v2/bson"
 	"github.com/rihtim/core/keys"
+	"reflect"
 )
 
 /**
@@ -291,7 +292,7 @@ var GrantRole = func(user interface{}, message messages.Message) (response messa
 	} else {
 
 		for _, roleToGrant := range rolesToGrant.([]interface{}) {
-			if !arrayContains(roles.([]interface{}), roleToGrant) {
+			if !arrayContainsString(roles.([]interface{}), roleToGrant) {
 				roles = append(roles.([]interface{}), roleToGrant)
 			}
 		}
@@ -375,7 +376,7 @@ var RecallRole = func(user interface{}, message messages.Message) (response mess
 
 		for _, existingRole := range existingRoles.([]interface{}) {
 
-			if !arrayContains(rolesToRecall.([]interface{}), existingRole) {
+			if !arrayContainsString(rolesToRecall.([]interface{}), existingRole) {
 				newRoles = append(newRoles, existingRole)
 			}
 		}
@@ -384,6 +385,148 @@ var RecallRole = func(user interface{}, message messages.Message) (response mess
 	body := map[string]interface{}{constants.RolesIdentifier: newRoles}
 	response.Body, finalInterceptorBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
 	response.Body[constants.RolesIdentifier] = newRoles
+	return
+}
+
+var Append = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+
+	// check whether the headers give special permissions to perform the request
+	var isGrantedByKey bool
+	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(message.Headers)
+	if err != nil {
+		return
+	}
+
+	fmt.Println(message.Headers)
+	if !isGrantedByKey && len(user.(map[string]interface{})) == 0 {
+		err = &utils.Error{http.StatusUnauthorized, "Append request requires access token."}
+		return
+	}
+
+	resParts := strings.Split(message.Res, "/")
+	if len(resParts) != 5 {
+		err = &utils.Error{http.StatusBadRequest, "Append can only be used on array fields. Ex: '/groups/{id}/members/appendUnique'"}
+		return
+	}
+	itemClassToUpdate := resParts[1]
+	itemIdToUpdate := resParts[2]
+	fieldToAppend := resParts[3]
+
+	if message.Body == nil {
+		err = &utils.Error{http.StatusBadRequest, "Append request must contain body."}
+		return
+	}
+
+	itemsToAdd, hasItemsToAdd := message.Body["items"]
+	if !hasItemsToAdd {
+		err = &utils.Error{http.StatusBadRequest, "Append request must contain list of items in 'items' field in body."}
+		return
+	}
+
+	var itemToUpdate map[string]interface{}
+	itemToUpdate, err = database.Adapter.Get(itemClassToUpdate, itemIdToUpdate)
+	if err != nil {
+		return
+	}
+
+	fieldValueToAppend, hasFieldToAppend := itemToUpdate[fieldToAppend]
+
+	if !hasFieldToAppend {
+		fieldValueToAppend = make([]interface{}, 0)
+	} else if fieldObjectType := reflect.TypeOf(fieldValueToAppend); fieldObjectType.Kind() != reflect.Slice {
+		err = &utils.Error{http.StatusBadRequest, "The field '" + fieldToAppend + "' is not an array."}
+		return
+	}
+
+	for _, itemToAdd := range itemsToAdd.([]interface{}) {
+		if itemType := reflect.TypeOf(itemToAdd); itemType.Kind() == reflect.Map {
+			if i := arrayContainsMap(fieldValueToAppend.([]interface{}), itemToAdd.(map[string]interface{})); i == -1 {
+				fieldValueToAppend = append(fieldValueToAppend.([]interface{}), itemToAdd)
+			}
+		}
+		if itemType := reflect.TypeOf(itemToAdd); itemType.Kind() == reflect.String {
+			if !arrayContainsString(fieldValueToAppend.([]interface{}), itemToAdd) {
+				fieldValueToAppend = append(fieldValueToAppend.([]interface{}), itemToAdd)
+			}
+		}
+	}
+
+	body := make(map[string]interface{})
+	body[fieldToAppend] = fieldValueToAppend
+	response.Body, finalInterceptorBody, err = database.Adapter.Update(itemClassToUpdate, itemIdToUpdate, body)
+	response.Body[fieldToAppend] = fieldValueToAppend
+	return
+}
+
+var Remove = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+
+	// check whether the headers give special permissions to perform the request
+	var isGrantedByKey bool
+	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(message.Headers)
+	if err != nil {
+		return
+	}
+
+	fmt.Println(message.Headers)
+	if !isGrantedByKey && len(user.(map[string]interface{})) == 0 {
+		err = &utils.Error{http.StatusUnauthorized, "Remove request requires authentication."}
+		return
+	}
+
+	resParts := strings.Split(message.Res, "/")
+	if len(resParts) != 5 {
+		err = &utils.Error{http.StatusBadRequest, "Remove can only be used on array fields. Ex: '/groups/{id}/members/appendUnique'"}
+		return
+	}
+	itemClassToUpdate := resParts[1]
+	itemIdToUpdate := resParts[2]
+	fieldToRemove := resParts[3]
+
+	if message.Body == nil {
+		err = &utils.Error{http.StatusBadRequest, "Remove request must contain body."}
+		return
+	}
+
+	itemsToRemove, hasItemsToRemove := message.Body["items"]
+	if !hasItemsToRemove {
+		err = &utils.Error{http.StatusBadRequest, "Remove request must contain list of items in 'items' field in body."}
+		return
+	}
+
+	var itemToUpdate map[string]interface{}
+	itemToUpdate, err = database.Adapter.Get(itemClassToUpdate, itemIdToUpdate)
+	if err != nil {
+		return
+	}
+
+	fieldValueToRemove, hasFieldToAppend := itemToUpdate[fieldToRemove]
+
+	if !hasFieldToAppend {
+		err = &utils.Error{http.StatusBadRequest, "The field '" + fieldToRemove + "' doesn't exist."}
+		return
+	} else if fieldObjectType := reflect.TypeOf(fieldValueToRemove); fieldObjectType.Kind() != reflect.Slice {
+		err = &utils.Error{http.StatusBadRequest, "The field '" + fieldToRemove + "' is not an array."}
+		return
+	}
+
+	var newArray = make([]interface{}, 0)
+	for _, existingItem := range fieldValueToRemove.([]interface{}) {
+		if itemType := reflect.TypeOf(existingItem); itemType.Kind() == reflect.Map {
+			if i := arrayContainsMap(itemsToRemove.([]interface{}), existingItem.(map[string]interface{})); i == -1 {
+				newArray = append(newArray, existingItem)
+			}
+		}
+		if itemType := reflect.TypeOf(existingItem); itemType.Kind() == reflect.String {
+			if !arrayContainsString(itemsToRemove.([]interface{}), existingItem) {
+				newArray = append(newArray, existingItem)
+			}
+		}
+	}
+
+	body := make(map[string]interface{})
+	body[fieldToRemove] = newArray
+	response.Body, finalInterceptorBody, err = database.Adapter.Update(itemClassToUpdate, itemIdToUpdate, body)
+	response.Body[fieldToRemove] = newArray
 	return
 }
 
@@ -450,11 +593,42 @@ var sendNewPasswordEmail = func(smtpServer, smtpPost, senderEmail, senderEmailPa
 	return
 }
 
-var arrayContains = func(array []interface{}, item interface{}) (contains bool) {
+var arrayContainsString = func(array []interface{}, item interface{}) (contains bool) {
 	set := make(map[string]bool)
 	for _, v := range array {
 		set[v.(string)] = true
 	}
 	_, contains = set[item.(string)]
 	return
+}
+
+
+var arrayContainsMap = func(array []interface{}, item map[string]interface{}) (index int) {
+
+	for i, itemToCheck := range array {
+		if (isMapEquals(itemToCheck.(map[string]interface{}), item)) {
+			return i
+		}
+	}
+
+	return -1
+}
+
+var isMapEquals = func(m1, m2 map[string]interface{}) bool {
+
+	// skip if field counts are not equal
+	if len(m1) != len(m2) {
+		return false
+	}
+
+	// check each field of items
+	var hasDifferentField = false
+	for key, field := range m1 {
+		sameFieldValue, hasSameField := m2[key]
+		if !hasSameField || sameFieldValue != field {
+			hasDifferentField = true
+		}
+	}
+
+	return !hasDifferentField
 }

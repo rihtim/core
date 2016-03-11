@@ -59,7 +59,7 @@ var restrictedFieldsForCreate = map[string]bool{
 }
 
 var CreateActor = func(parent *Actor, res string) (a Actor) {
-//	log.Debug("Creating actor for " + res)
+	//	log.Debug("Creating actor for " + res)
 
 	if parent == nil {
 		a.actorType = constants.ActorTypeRoot
@@ -166,11 +166,13 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 		"command": requestWrapper.Message.Command,
 	}).Info("Received request.")
 
-	// check for method is allowed on the resource type
-	allowedMethods := AllowedMethodsOfActorTypes[a.actorType]
-	if isMethodAllowed := allowedMethods[strings.ToLower(requestWrapper.Message.Command)]; !isMethodAllowed {
-		err = &utils.Error{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)}
-		return
+	// check for method is allowed on the resource type except functions
+	if !strings.EqualFold(a.actorType, constants.ActorTypeFunctions) {
+		allowedMethods := AllowedMethodsOfActorTypes[a.actorType]
+		if isMethodAllowed := allowedMethods[strings.ToLower(requestWrapper.Message.Command)]; !isMethodAllowed {
+			err = &utils.Error{http.StatusMethodNotAllowed, http.StatusText(http.StatusMethodNotAllowed)}
+			return
+		}
 	}
 	message := requestWrapper.Message
 	var finalInterceptorBody map[string]interface{}
