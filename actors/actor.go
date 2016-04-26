@@ -77,7 +77,9 @@ var CreateActor = func(parent *Actor, res string) (a Actor) {
 	a.res = res
 	a.children = make(map[string]Actor)
 	a.Inbox = make(chan messages.RequestWrapper)
-	if parent != nil {a.parentInbox = parent.Inbox}
+	if parent != nil {
+		a.parentInbox = parent.Inbox
+	}
 	return
 }
 
@@ -122,8 +124,12 @@ func (a *Actor) Run() {
 				response, err := HandleRequest(a, requestWrapper)
 
 				if err != nil {
-					if response.Status == 0 {response.Status = err.Code}
-					if response.Body == nil {response.Body = map[string]interface{}{"message":err.Message}}
+					if response.Status == 0 {
+						response.Status = err.Code
+					}
+					if response.Body == nil {
+						response.Body = map[string]interface{}{"message":err.Message}
+					}
 					log.Error(err.Error())
 				}
 
@@ -174,13 +180,19 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 			return
 		}
 	}
-	message := requestWrapper.Message
-	var finalInterceptorBody map[string]interface{}
+	request := requestWrapper.Message
+	var editedRequest, editedResponse messages.Message
 
-	// call interceptors before authentication
-	message, err = interceptors.ExecuteInterceptors(message.Res, message.Command, interceptors.BEFORE_AUTH, nil, message)
-	if err != nil {
+	// call interceptors before authentication. return if response or error is not nil.
+	editedRequest, editedResponse, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.BEFORE_AUTH, nil, request, response)
+	if err != nil || !editedResponse.IsEmpty() {
+		response = editedResponse
 		return
+	}
+
+	// update request if interceptor returned updatedRequest
+	if !editedRequest.IsEmpty() {
+		request = editedRequest
 	}
 
 	// check whether the headers give special permissions to perform the request
@@ -190,12 +202,13 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 		return
 	}
 
+	// check permissions of user if request is not granted by keys.
+	// continue anyway if the actor type is ActorTypeFunctions because the security should be handled in function itself
 	var user map[string]interface{}
-	if !isGrantedByKey {
-		// check permissions of user if request is not granted by keys. continue anyway if the actor type is ActorTypeFunctions
+	if !isGrantedByKey && !strings.EqualFold(a.actorType, constants.ActorTypeFunctions) {
 		var isGranted bool
 		isGranted, user, err = auth.IsGranted(a.class, requestWrapper)
-		if !isGranted && !strings.EqualFold(a.actorType, constants.ActorTypeFunctions) {
+		if !isGranted {
 			if err == nil {
 				err = &utils.Error{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}
 			}
@@ -203,22 +216,29 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 		}
 	}
 
-	// call interceptors before execution
-	message, err = interceptors.ExecuteInterceptors(message.Res, message.Command, interceptors.BEFORE_EXEC, user, message)
-	if err != nil {
+	// call interceptors before execution. return if response or error is not nil.
+	editedRequest, editedResponse, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.BEFORE_EXEC, user, request, response)
+	if err != nil || !editedResponse.IsEmpty() {
+		response = editedResponse
 		return
 	}
 
+	// update request if interceptor returned updatedRequest
+	if !editedRequest.IsEmpty() {
+		request = editedRequest
+	}
+	requestWrapper.Message = request
+
 	// execute request
 	if (strings.EqualFold(a.actorType, constants.ActorTypeFunctions)) {
-		functionHandler := functions.GetFunctionHandler(message.Res)
-		response, finalInterceptorBody, err = functionHandler(user, message)
+		functionHandler := functions.GetFunctionHandler(request.Res)
+		response, _, err = functionHandler(user, request)
 	} else if strings.EqualFold(requestWrapper.Message.Command, constants.CommandPost) {
-		response, finalInterceptorBody, err = handlePost(a, requestWrapper, user)
+		response, _, err = handlePost(a, requestWrapper, user)
 	} else if strings.EqualFold(requestWrapper.Message.Command, constants.CommandGet) {
 		response, err = handleGet(a, requestWrapper)
 	} else if strings.EqualFold(requestWrapper.Message.Command, constants.CommandPut) {
-		response, finalInterceptorBody, err = handlePut(a, requestWrapper)
+		response, _, err = handlePut(a, requestWrapper)
 	} else if strings.EqualFold(requestWrapper.Message.Command, constants.CommandDelete) {
 		response, err = handleDelete(a, requestWrapper)
 	}
@@ -226,18 +246,20 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 		return
 	}
 
-	// call interceptors after execution
-	afterExecInterceptorMessage := copyMessage(message)
-	afterExecInterceptorMessage.Body = response.Body
-	message, err = interceptors.ExecuteInterceptors(message.Res, message.Command, interceptors.AFTER_EXEC, user, afterExecInterceptorMessage)
+	// call interceptors after execution. return value of the editedRequest is ignored because the execution is done
+	_, editedResponse, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.AFTER_EXEC, user, request, response)
 	if err != nil {
 		return
 	}
 
-	// call interceptors on final
-	finalMessage := copyMessage(response)
-	finalMessage.Body = finalInterceptorBody
-	go interceptors.ExecuteInterceptors(message.Res, message.Command, interceptors.FINAL, user, finalMessage)
+	// replace the response with the given response but do not return.
+	if !editedResponse.IsEmpty() {
+		response = editedResponse
+	}
+
+	// call interceptors on final. all the return values are ignored because the final interceptor
+	// doesn't have any effect on the request or response. it serves as trigger after the request
+	go interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.FINAL, user, request, response)
 
 	elapsed := time.Since(start)
 	log.WithFields(logrus.Fields{

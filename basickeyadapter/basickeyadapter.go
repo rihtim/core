@@ -76,9 +76,9 @@ func generateKey() (string, *utils.Error) {
 	return fmt.Sprintf("%x", key), nil
 }
 
-var RequireMasterKey = func(user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error) {
+var RequireMasterKey = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
 
-	masterKeys, hasMasterKey := message.Headers[HeaderKeyMaster]
+	masterKeys, hasMasterKey := request.Headers[HeaderKeyMaster]
 	if !hasMasterKey || !keys.Adapter.IsKeyValid(KeyMaster, masterKeys[0]) {
 		err = &utils.Error{http.StatusForbidden, http.StatusText(http.StatusForbidden)}
 		return
@@ -89,6 +89,7 @@ var RequireMasterKey = func(user map[string]interface{}, message messages.Messag
 		"masterKey": masterKey[:10] + "..." + masterKey[len(masterKey)-10:len(masterKey)],
 	}).Warning("Request contains a valid master key.")
 
-	response = message
+	editedRequest = request
+	editedResponse = response
 	return
 }

@@ -28,3 +28,7 @@ type RequestError struct {
 	Message string
 	Body    map[string]interface{}
 }
+
+func (m *Message) IsEmpty() bool {
+	return len(m.Res) == 0 && len(m.Command) == 0 && m.Headers == nil && m.Parameters == nil && m.MultipartForm == nil && m.Body == nil && len(m.RawBody) == 0 && m.ReqBodyRaw == nil
+}

@@ -13,20 +13,20 @@ import (
 
 var FilterConfig map[string]interface{}
 
-var Expander = func(user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error) {
+var Expander = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
 
-	response = message
-	if message.Parameters["expand"] != nil {
+	editedResponse = response
+	if request.Parameters["expand"] != nil {
 
 		tempCache := make(map[string]interface{})
 
-		expandConfig := message.Parameters["expand"][0]
-		if resultsArray, hasResultsArray := response.Body[constants.ListIdentifier].([]map[string]interface{}); hasResultsArray {
+		expandConfig := request.Parameters["expand"][0]
+		if resultsArray, hasResultsArray := editedResponse.Body[constants.ListIdentifier].([]map[string]interface{}); hasResultsArray {
 			for i, item := range resultsArray {
 
 				var expandedItem map[string]interface{}
 				var expandErr *utils.Error
-				expandedItem, expandErr = expandItem(item, message, expandConfig, tempCache)
+				expandedItem, expandErr = expandItem(item, editedResponse, expandConfig, tempCache)
 				if expandErr != nil {
 					resultsArray[i] = map[string]interface{}{"code": expandErr.Code, "message": expandErr.Message}
 				} else {
@@ -34,28 +34,28 @@ var Expander = func(user map[string]interface{}, message messages.Message) (resp
 				}
 			}
 		} else {
-			response.Body, err = expandItem(message.Body, message, expandConfig, tempCache)
+			editedResponse.Body, err = expandItem(editedResponse.Body, editedResponse, expandConfig, tempCache)
 		}
 	}
 	return
 }
 
-var Filter = func(user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error) {
+var Filter = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
 
 	// TODO add the filter parameter to request and handle it
 
-	response = message
+	editedResponse = response
 	if FilterConfig == nil {
 		return
 	}
 
-	class := strings.Split(message.Res, "/")[1]
-	if resultsArray, hasResultsArray := response.Body[constants.ListIdentifier].([]map[string]interface{}); hasResultsArray {
+	class := strings.Split(request.Res, "/")[1]
+	if resultsArray, hasResultsArray := editedResponse.Body[constants.ListIdentifier].([]map[string]interface{}); hasResultsArray {
 		for i, item := range resultsArray {
 			resultsArray[i] = filterItem(class, item)
 		}
 	} else {
-		response.Body = filterItem(class, response.Body)
+		editedResponse.Body = filterItem(class, editedResponse.Body)
 	}
 
 	return

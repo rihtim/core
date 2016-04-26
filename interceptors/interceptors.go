@@ -8,7 +8,8 @@ import (
 	"github.com/rihtim/core/log"
 )
 
-type Interceptor func(user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error)
+//type Interceptor func(user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error)
+type Interceptor func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error)
 
 type InterceptorType int
 
@@ -30,7 +31,7 @@ type interceptorIndex struct {
 	res             string
 	method          string
 	interceptorType InterceptorType
-	interceptor Interceptor
+	interceptor     Interceptor
 }
 
 var interceptorsMap []interceptorIndex
@@ -70,19 +71,28 @@ var GetInterceptor = func(res, method string, interceptorType InterceptorType) (
 	return interceptors
 }
 
-var ExecuteInterceptors = func(res, method string, interceptorType InterceptorType, user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error) {
+var ExecuteInterceptors = func(res, method string, interceptorType InterceptorType, user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
 
 	interceptors := GetInterceptor(res, method, interceptorType)
 
-	var input, output messages.Message
-	input = message
+	var inputRequest, outputRequest, inputResponse, outputResponse messages.Message
+	inputRequest = request
+	inputResponse = response
 	for _, interceptor := range interceptors {
-		output, err = interceptor(user, input)
+		outputRequest, outputResponse, err = interceptor(user, inputRequest, inputResponse)
 		if err != nil {
 			return
 		}
-		input = output    // output of the previous interceptor becomes the input of the next interceptor
+
+		// output of the previous interceptor becomes the input of the next interceptor
+		if !outputRequest.IsEmpty() {
+			inputRequest = outputRequest
+		}
+		if !outputResponse.IsEmpty() {
+			inputResponse = outputResponse
+		}
 	}
-	response = input
+	editedRequest = inputRequest
+	editedResponse = inputResponse
 	return
 }
