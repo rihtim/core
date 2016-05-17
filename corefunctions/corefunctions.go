@@ -17,25 +17,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"github.com/rihtim/core/keys"
 	"reflect"
+	"time"
 )
 
-/**
- * Reset password configuration: should contain these fields:
-    "senderEmail": Sender email address.
-    "senderEmailPassword": Sender email address's password.
-    "smtpServer": Smtp server to call.
-    "smtpPort": Smtp port to call.
-    "mailSubject": Subject text of the mail.
-    "mailContentTemplate": HTML template for the email content. Provide %s in the place where the password will be shown.
-     	For Ex: "<html><head></head><body><p>Dear Rihtim user,</p> <p>As you requested, a new password is generated for you. You can use the password below to login. </p><p><b>%s</b> </p><p>Please change your password with something you choose after your first login with this generated password. </p><p>Thanks,<br/>Rihtim Team</p></body></html>"
- */
 var ResetPasswordConfig    map[string]string
-
-// used for password generation
-var fruits = []string{"apples", "appricots", "avocados", "bananas", "cherries", "coconuts", "damsons",
-	"dates", "durian", "grapes", "guavas", "jambuls", "jujubes", "kiwis", "lemons", "limes", "mangos", "melons",
-	"olives", "oranges", "papayas", "peaches", "pears", "plums", "pumpkins", "pomelos", "satsumas", "tomatoes"}
-var quantities = []string{"two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"}
 
 var fieldsForRegister = map[string]bool{
 	constants.IdIdentifier: false,
@@ -44,6 +29,34 @@ var fieldsForRegister = map[string]bool{
 	"updatedAt": false,
 	"email": true,
 	"password": true,
+}
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
+
+// used for password generation
+var src = rand.NewSource(time.Now().UnixNano())
+
+var GenerateRandomString = func(n int) string {
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return string(b)
 }
 
 var Register = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
@@ -178,6 +191,7 @@ var ResetPassword = func(user interface{}, message messages.Message) (response m
 
 	if ResetPasswordConfig == nil {
 		err = &utils.Error{http.StatusInternalServerError, "Email reset configuration is not defined."}
+		return
 	}
 
 	senderEmail, hasSenderEmail := ResetPasswordConfig["senderEmail"]
@@ -203,10 +217,8 @@ var ResetPassword = func(user interface{}, message messages.Message) (response m
 		return
 	}
 
-	// generating random password like: "twoapplesandfiveoranges" or "threekiwisandsevenbananas"
-	passwordFirstHalf := quantities[rand.Intn(len(quantities))] + fruits[rand.Intn(len(fruits))]
-	passwordSecondHalf := quantities[rand.Intn(len(quantities))] + fruits[rand.Intn(len(fruits))]
-	generatedPassword := passwordFirstHalf + "and" + passwordSecondHalf
+	// generating random password
+	generatedPassword := GenerateRandomString(6)
 	hashedPassword, hashErr := bcrypt.GenerateFromPassword([]byte(generatedPassword), bcrypt.DefaultCost)
 	if hashErr != nil {
 		err = &utils.Error{http.StatusInternalServerError, "Hashing new password failed. Reason: " + hashErr.Error()}
