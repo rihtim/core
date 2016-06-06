@@ -111,6 +111,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	actor := actors.CreateActorForRes(requestWrapper.Message.Res)
 	response, err := actors.HandleRequest(&actor, requestWrapper)
 
+	for k, v := range response.Headers {
+		//vAsArray := v.([]string)
+		w.Header().Set(k, v[0])
+	}
+
 	if err != nil {
 		if response.Status == 0 {response.Status = err.Code}
 		if response.Body == nil {response.Body = map[string]interface{}{"code":err.Code, "message":err.Message}}
@@ -130,7 +135,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if response.RawBody != nil {
-		w.Header().Set("Content-Type", "text/plain")
+		//w.Header().Set("Content-Type", "text/plain")
 		w.Write(response.RawBody)
 	}
 
