@@ -174,7 +174,8 @@ func verifyToken(tokenString string) (userData map[string]interface{}, err *util
 		return
 	}
 
-	userData = token.Claims["user"].(map[string]interface{})
+	mapClaims := token.Claims.(jwt.MapClaims)
+	userData = mapClaims["user"].(map[string]interface{})
 	return
 }
 
@@ -192,9 +193,10 @@ var GenerateToken = func(userId string, userData map[string]interface{}) (tokenS
 		userTokenData["email"] = email
 	}
 
-	token.Claims["ver"] = "0.1"
-	token.Claims["exp"] = time.Now().Add(time.Hour * 72).Unix()
-	token.Claims["user"] = userTokenData
+	mapClaims := token.Claims.(jwt.MapClaims)
+	mapClaims["ver"] = "0.1"
+	mapClaims["exp"] = time.Now().Add(time.Hour * 72).Unix()
+	mapClaims["user"] = userTokenData
 
 	var signErr error
 	tokenString, signErr = token.SignedString([]byte("SIGN_IN_KEY"))
