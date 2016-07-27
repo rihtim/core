@@ -3,7 +3,6 @@ package corefunctions
 import (
 	"fmt"
 	"strings"
-	"net/smtp"
 	"net/http"
 	"math/rand"
 	"encoding/json"
@@ -18,6 +17,8 @@ import (
 	"github.com/rihtim/core/keys"
 	"reflect"
 	"time"
+	"github.com/go-gomail/gomail"
+	"strconv"
 )
 
 var ResetPasswordConfig    map[string]string
@@ -34,8 +35,8 @@ var fieldsForRegister = map[string]bool{
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 const (
 	letterIdxBits = 6                    // 6 bits to represent a letter index
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+	letterIdxMask = 1 << letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
 // used for password generation
@@ -44,7 +45,7 @@ var src = rand.NewSource(time.Now().UnixNano())
 var GenerateRandomString = func(n int) string {
 	b := make([]byte, n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+	for i, cache, remain := n - 1, src.Int63(), letterIdxMax; i >= 0; {
 		if remain == 0 {
 			cache, remain = src.Int63(), letterIdxMax
 		}
@@ -194,6 +195,7 @@ var ResetPassword = func(user interface{}, message messages.Message) (response m
 		return
 	}
 
+	senderName, hasSenderName := ResetPasswordConfig["senderName"]
 	senderEmail, hasSenderEmail := ResetPasswordConfig["senderEmail"]
 	senderEmailPassword, hasSenderEmailPassword := ResetPasswordConfig["senderEmailPassword"]
 	smtpServer, hasSmtpServer := ResetPasswordConfig["smtpServer"]
@@ -201,7 +203,7 @@ var ResetPassword = func(user interface{}, message messages.Message) (response m
 	mailSubject, hasMailSubject := ResetPasswordConfig["mailSubject"]
 	mailContentTemplate, hasMailContent := ResetPasswordConfig["mailContentTemplate"]
 
-	if !hasSmtpServer || !hasSmtpPort || !hasSenderEmail || !hasSenderEmailPassword || !hasMailSubject || !hasMailContent {
+	if !hasSenderName || !hasSmtpServer || !hasSmtpPort || !hasSenderEmail || !hasSenderEmailPassword || !hasMailSubject || !hasMailContent {
 		err = &utils.Error{http.StatusInternalServerError, "Email reset configuration is not correct."}
 		return
 	}
@@ -231,7 +233,15 @@ var ResetPassword = func(user interface{}, message messages.Message) (response m
 		return
 	}
 
-	err = sendNewPasswordEmail(smtpServer, smtpPort, senderEmail, senderEmailPassword, mailSubject, mailContentTemplate, recipientEmail.(string), generatedPassword)
+	generatedContent := fmt.Sprintf(mailContentTemplate, generatedPassword)
+	to := []string{recipientEmail.(string)}
+
+	port, pErr := strconv.Atoi(smtpPort)
+	if pErr != nil {
+		err = &utils.Error{http.StatusInternalServerError, "Parsing smtp port failed. Reason: " + pErr.Error()}
+	}
+
+	err = sendEmail(smtpServer, senderEmail, senderName, senderEmailPassword, port, to, nil, nil, mailSubject, generatedContent)
 	return
 }
 
@@ -585,26 +595,6 @@ var getAccountData = func(message messages.Message) (accountData map[string]inte
 	return
 }
 
-var sendNewPasswordEmail = func(smtpServer, smtpPost, senderEmail, senderEmailPassword, subject, contentTemplate, recipientEmail, newPassword string) (err *utils.Error) {
-
-	auth := smtp.PlainAuth("", senderEmail, senderEmailPassword, smtpServer)
-
-	generatedContent := fmt.Sprintf(contentTemplate, newPassword)
-	to := []string{recipientEmail}
-	msg := []byte(
-	"From: " + senderEmail + "\r\n" +
-	"To: " + recipientEmail + "\r\n" +
-	"Subject: " + subject + "\r\n" +
-	"MIME-version: 1.0;\nContent-Type: text/html; charset=\"UTF-8\";\n\n" +
-	"\r\n" + generatedContent + "\r\n")
-	sendMailErr := smtp.SendMail(smtpServer + ":" + smtpPost, auth, senderEmail, to, msg)
-
-	if sendMailErr != nil {
-		err = &utils.Error{http.StatusInternalServerError, "Sending email failed. Reason: " + sendMailErr.Error()}
-	}
-	return
-}
-
 var arrayContainsString = func(array []interface{}, item interface{}) (contains bool) {
 	set := make(map[string]bool)
 	for _, v := range array {
@@ -613,7 +603,6 @@ var arrayContainsString = func(array []interface{}, item interface{}) (contains 
 	_, contains = set[item.(string)]
 	return
 }
-
 
 var arrayContainsMap = func(array []interface{}, item map[string]interface{}) (index int) {
 
@@ -643,4 +632,22 @@ var isMapEquals = func(m1, m2 map[string]interface{}) bool {
 	}
 
 	return !hasDifferentField
+}
+
+func sendEmail(smtpServer, senderEmail, senderName, senderEmailPassword string, smtpPort int, to, cc, bcc []string, subject, content string) *utils.Error {
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", m.FormatAddress(senderEmail, senderName))
+	m.SetHeader("To", to...)
+	m.SetHeader("Cc", cc...)
+	m.SetHeader("Bcc", bcc...)
+	m.SetHeader("Subject", subject)
+	m.SetBody("text/html", content)
+
+	d := gomail.NewDialer(smtpServer, smtpPort, senderEmail, senderEmailPassword)
+
+	if err := d.DialAndSend(m); err != nil {
+		return &utils.Error{http.StatusInternalServerError, err.Error()}
+	}
+	return nil
 }
