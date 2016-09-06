@@ -165,7 +165,7 @@ func verifyToken(tokenString string) (userData map[string]interface{}, err *util
 	})
 
 	if tokenErr != nil {
-		err = &utils.Error{http.StatusInternalServerError, "Parsing token failed."}
+		err = &utils.Error{http.StatusInternalServerError, "Parsing token failed. Reason: " + tokenErr.Error()}
 		return
 	}
 
