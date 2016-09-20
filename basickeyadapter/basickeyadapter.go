@@ -18,30 +18,30 @@ var HeaderKeyMaster = "Master-Key"
 var KeyMaster = "master"
 
 type BasicKeyAdapter struct {
-	keys map[string]string
+	Keys map[string]string
 }
 
 func (ka *BasicKeyAdapter) Init(config map[string]interface{}) (err *utils.Error) {
 
-	ka.keys = make(map[string]string)
+	ka.Keys = make(map[string]string)
 
 	// generate master key if not provided in config
 	var hasMasterKey bool
-	ka.keys[KeyMaster], hasMasterKey = config[KeyMaster].(string)
+	ka.Keys[KeyMaster], hasMasterKey = config[KeyMaster].(string)
 	if !hasMasterKey {
-		ka.keys[KeyMaster], err = generateKey()
+		ka.Keys[KeyMaster], err = generateKey()
 		if err != nil {return}
-		log.Info("Master key generated: " + ka.keys[KeyMaster])
+		log.Info("Master key generated: " + ka.Keys[KeyMaster])
 	}
 
-	keysJson, _ := json.Marshal(ka.keys)
+	keysJson, _ := json.Marshal(ka.Keys)
 	ioutil.WriteFile("keys.json", keysJson, 0644)
 
 	return
 }
 
 func (ka BasicKeyAdapter) IsKeyValid(keyName, key string) (bool) {
-	return strings.EqualFold(ka.keys[keyName], key)
+	return strings.EqualFold(ka.Keys[keyName], key)
 }
 
 func (ka BasicKeyAdapter) CheckKeyPermissions(headers map[string][]string) (isGrantedByKey bool, err *utils.Error) {

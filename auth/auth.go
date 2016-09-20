@@ -39,7 +39,7 @@ var IsGranted = func(collection string, requestWrapper messages.RequestWrapper) 
 	// if key adapter doesn't override the permissions, check for user permissions
 	var permissions map[string]bool
 	var roles []string
-	user, err = getUser(requestWrapper)
+	user, err = GetUser(requestWrapper.Message)
 	if err != nil {
 		return
 	}
@@ -66,10 +66,10 @@ var IsGranted = func(collection string, requestWrapper messages.RequestWrapper) 
 	return
 }
 
-func getUser(requestWrapper messages.RequestWrapper) (user map[string]interface{}, err *utils.Error) {
+func GetUser(request messages.Message) (user map[string]interface{}, err *utils.Error) {
 
 	var userDataFromToken map[string]interface{}
-	userDataFromToken, err = extractUserFromRequest(requestWrapper)
+	userDataFromToken, err = extractUserFromRequest(request)
 
 	if err != nil {
 		return
@@ -101,9 +101,9 @@ func getRolesOfUser(user map[string]interface{}) (roles []string, err *utils.Err
 	return
 }
 
-func extractUserFromRequest(requestWrapper messages.RequestWrapper) (user map[string]interface{}, err *utils.Error) {
+func extractUserFromRequest(request messages.Message) (user map[string]interface{}, err *utils.Error) {
 
-	authHeaders := requestWrapper.Message.Headers["Authorization"]
+	authHeaders := request.Headers["Authorization"]
 	if authHeaders != nil && len(authHeaders) > 0 {
 		accessToken := authHeaders[0]
 		if strings.Index(accessToken, "Bearer ") != 0 {
