@@ -99,9 +99,18 @@ var Register = func(user interface{}, message messages.Message) (response messag
 		return
 	}
 
-	accessToken, tokenErr := auth.GenerateToken(response.Body[constants.IdIdentifier].(string), response.Body)
-	if tokenErr != nil {
-		err = tokenErr
+	userData := map[string]interface{}{
+		"userId": response.Body[constants.IdIdentifier].(string),
+	}
+	authData, adErr := auth.Adapter.GenerateAuthData(userData)
+	if adErr != nil {
+		err = adErr
+		return
+	}
+
+	accessToken, hasToken := authData["token"].(string)
+	if !hasToken {
+		err = &utils.Error{http.StatusInternalServerError, "Token couldn't be retrieved from auth data."}
 		return
 	}
 
@@ -136,12 +145,23 @@ var Login = func(user interface{}, message messages.Message) (response messages.
 		delete(accountData, "password")
 		response.Body = accountData
 
-		var accessToken string
-		accessToken, err = auth.GenerateToken(accountData[constants.IdIdentifier].(string), accountData)
-		if err == nil {
-			response.Body["accessToken"] = accessToken
-			response.Status = http.StatusOK
+		userData := map[string]interface{}{
+			"userId": accountData[constants.IdIdentifier].(string),
 		}
+		authData, adErr := auth.Adapter.GenerateAuthData(userData)
+		if adErr != nil {
+			err = adErr
+			return
+		}
+
+		accessToken, hasToken := authData["token"].(string)
+		if !hasToken {
+			err = &utils.Error{http.StatusInternalServerError, "Token couldn't be retrieved from auth data."}
+			return
+		}
+
+		response.Body["accessToken"] = accessToken
+		response.Status = http.StatusOK
 	} else {
 		response.Status = http.StatusUnauthorized
 	}

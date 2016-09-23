@@ -53,20 +53,10 @@ func (a *JWTAdapter) GenerateAuthData(user map[string]interface{}) (authData map
 
 	token := jwt.New(jwt.SigningMethodHS256)
 
-	userTokenData := make(map[string]interface{})
-	userTokenData["userId"] = user["_id"]
-
-	if username, hasUsername := user["username"]; hasUsername && username != "" {
-		userTokenData["username"] = username
-	}
-	if email, hasEmail := user["email"]; hasEmail && email != "" {
-		userTokenData["email"] = email
-	}
-
 	mapClaims := token.Claims.(jwt.MapClaims)
 	mapClaims["ver"] = a.Version
 	mapClaims["exp"] = time.Now().Add(time.Hour *time.Duration(a.Expiration)).Unix()
-	mapClaims["user"] = userTokenData
+	mapClaims["user"] = user
 
 	tokenString, signErr := token.SignedString([]byte(a.SignKey))
 	if signErr != nil {
