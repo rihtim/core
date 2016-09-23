@@ -14,6 +14,8 @@ var functionHandlers map[string]FunctionHandler
 
 var AddFunctionHandler = func(path string, handler FunctionHandler) {
 
+	path = utils.ConvertRichUrlToRegex(path, true)
+
 	if functionHandlers == nil {
 		functionHandlers = make(map[string]FunctionHandler)
 	}

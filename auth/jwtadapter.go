@@ -79,7 +79,7 @@ func (a *JWTAdapter) IsGranted(user map[string]interface{}, request messages.Mes
 	}
 
 	regex := utils.ConvertRichUrlToRegex("/{collection}/", false)
-	urlParams := utils.GetParamsFromRichUrl(regex, request.Res)
+	urlParams, _ := utils.GetParamsFromRichUrl(regex, request.Res)
 	collection := urlParams["collection"]
 
 	// check for user permissions

@@ -1,7 +1,6 @@
 package corefunctions
 
 import (
-	"fmt"
 	"strings"
 	"net/http"
 	"math/rand"
@@ -407,7 +406,6 @@ var Append = func(user interface{}, message messages.Message) (response messages
 		return
 	}
 
-	fmt.Println(message.Headers)
 	if !isGrantedByKey && len(user.(map[string]interface{})) == 0 {
 		err = &utils.Error{http.StatusUnauthorized, "Append request requires access token."}
 		return
@@ -477,7 +475,6 @@ var Remove = func(user interface{}, message messages.Message) (response messages
 		return
 	}
 
-	fmt.Println(message.Headers)
 	if !isGrantedByKey && len(user.(map[string]interface{})) == 0 {
 		err = &utils.Error{http.StatusUnauthorized, "Remove request requires authentication."}
 		return

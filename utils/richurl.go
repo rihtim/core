@@ -42,10 +42,12 @@ func ConvertRichUrlToRegex(path string, isComplete bool) (url string) {
  * group values defined in the expression.
  *
  */
-func GetParamsFromRichUrl(regEx, url string) (paramsMap map[string]string) {
+func GetParamsFromRichUrl(regEx, url string) (paramsMap map[string]string, matches bool ) {
 
 	var compRegEx = regexp.MustCompile(regEx)
 	match := compRegEx.FindStringSubmatch(url)
+
+	matches = len(match) > 0
 
 	paramsMap = make(map[string]string)
 	for i, name := range compRegEx.SubexpNames() {
