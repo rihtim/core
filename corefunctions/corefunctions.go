@@ -18,7 +18,6 @@ import (
 	"reflect"
 	"time"
 	"github.com/go-gomail/gomail"
-	"strconv"
 )
 
 var ResetPasswordConfig    map[string]string
@@ -68,7 +67,7 @@ var Register = func(user interface{}, message messages.Message) (response messag
 	}
 	password := message.Body["password"]
 
-	existingAccount, _ := getAccountData(message)
+	existingAccount, _ := getAccountData(message.Body)
 	if existingAccount != nil {
 		err = &utils.Error{http.StatusConflict, "User with same email already exists."}
 		return
@@ -121,7 +120,7 @@ var Login = func(user interface{}, message messages.Message) (response messages.
 		return
 	}
 
-	accountData, getAccountErr := getAccountData(message)
+	accountData, getAccountErr := getAccountData(message.Body)
 	if getAccountErr != nil {
 		err = getAccountErr
 		if getAccountErr.Code == http.StatusNotFound {
@@ -188,33 +187,12 @@ var ChangePassword = func(user interface{}, message messages.Message) (response 
 	return
 }
 
-var ResetPassword = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+/**
+ * Used to reset user's password.
+ */
+var ResetPassword = func(userInfo map[string]interface{}) (password string, err *utils.Error) {
 
-	if ResetPasswordConfig == nil {
-		err = &utils.Error{http.StatusInternalServerError, "Email reset configuration is not defined."}
-		return
-	}
-
-	senderName, hasSenderName := ResetPasswordConfig["senderName"]
-	senderEmail, hasSenderEmail := ResetPasswordConfig["senderEmail"]
-	senderEmailPassword, hasSenderEmailPassword := ResetPasswordConfig["senderEmailPassword"]
-	smtpServer, hasSmtpServer := ResetPasswordConfig["smtpServer"]
-	smtpPort, hasSmtpPort := ResetPasswordConfig["smtpPort"]
-	mailSubject, hasMailSubject := ResetPasswordConfig["mailSubject"]
-	mailContentTemplate, hasMailContent := ResetPasswordConfig["mailContentTemplate"]
-
-	if !hasSenderName || !hasSmtpServer || !hasSmtpPort || !hasSenderEmail || !hasSenderEmailPassword || !hasMailSubject || !hasMailContent {
-		err = &utils.Error{http.StatusInternalServerError, "Email reset configuration is not correct."}
-		return
-	}
-
-	recipientEmail, hasRecipientEmail := message.Body["email"]
-	if !hasRecipientEmail {
-		err = &utils.Error{http.StatusBadRequest, "Email must be provided in the body."}
-		return
-	}
-
-	accountData, err := getAccountData(message)
+	accountData, err := getAccountData(userInfo)
 	if err != nil {
 		return
 	}
@@ -228,20 +206,12 @@ var ResetPassword = func(user interface{}, message messages.Message) (response m
 	}
 
 	body := map[string]interface{}{"password": string(hashedPassword)}
-	response.Body, _, err = database.Adapter.Update(constants.ClassUsers, accountData[constants.IdIdentifier].(string), body)
+	_, _, err = database.Adapter.Update(constants.ClassUsers, accountData[constants.IdIdentifier].(string), body)
 	if err != nil {
 		return
 	}
 
-	generatedContent := fmt.Sprintf(mailContentTemplate, generatedPassword)
-	to := []string{recipientEmail.(string)}
-
-	port, pErr := strconv.Atoi(smtpPort)
-	if pErr != nil {
-		err = &utils.Error{http.StatusInternalServerError, "Parsing smtp port failed. Reason: " + pErr.Error()}
-	}
-
-	err = sendEmail(smtpServer, senderEmail, senderName, senderEmailPassword, port, to, nil, nil, mailSubject, generatedContent)
+	password = generatedPassword
 	return
 }
 
@@ -552,22 +522,28 @@ var Remove = func(user interface{}, message messages.Message) (response messages
 	return
 }
 
-var getAccountData = func(message messages.Message) (accountData map[string]interface{}, err *utils.Error) {
+/**
+ * Returns account data.
+ *
+ * param userInfo: information to retrieve the user's full data. must contain one of 'username', 'email',
+ * 'facebook' or 'google' info
+ */
+var getAccountData = func(userInfo map[string]interface{}) (accountData map[string]interface{}, err *utils.Error) {
 
 	var whereParams = make(map[string]interface{})
 	var queryKey, queryParam string
 
-	if username, hasUsername := message.Body["username"]; hasUsername && username != "" {
+	if username, hasUsername := userInfo["username"]; hasUsername && username != "" {
 		queryKey = "username"
 		queryParam = username.(string)
-	} else if email, hasEmail := message.Body["email"]; hasEmail && email != "" {
+	} else if email, hasEmail := userInfo["email"]; hasEmail && email != "" {
 		queryKey = "email"
 		queryParam = email.(string)
-	} else if facebookData, hasFacebookData := message.Body["facebook"]; hasFacebookData {
+	} else if facebookData, hasFacebookData := userInfo["facebook"]; hasFacebookData {
 		facebookDataAsMap := facebookData.(map[string]interface{})
 		queryParam = facebookDataAsMap["id"].(string)
 		queryKey = "facebook.id"
-	} else if googleData, hasGoogleData := message.Body["google"]; hasGoogleData {
+	} else if googleData, hasGoogleData := userInfo["google"]; hasGoogleData {
 		googleDataAsMap := googleData.(map[string]interface{})
 		queryParam = googleDataAsMap["id"].(string)
 		queryKey = "google.id"
@@ -582,9 +558,12 @@ var getAccountData = func(message messages.Message) (accountData map[string]inte
 		err = &utils.Error{http.StatusInternalServerError, "Creating user request failed."}
 		return
 	}
-	message.Parameters["where"] = []string{string(whereParamsJson)}
 
-	results, fetchErr := database.Adapter.Query(constants.ClassUsers, message.Parameters)
+	parameters := map[string][]string{
+		"where": []string{string(whereParamsJson)},
+	}
+
+	results, fetchErr := database.Adapter.Query(constants.ClassUsers, parameters)
 	resultsAsMap := results[constants.ListIdentifier].([]map[string]interface{})
 	if fetchErr != nil || len(resultsAsMap) == 0 {
 		err = &utils.Error{http.StatusNotFound, "Account not found."}
