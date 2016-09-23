@@ -12,8 +12,8 @@ import (
 )
 
 type JWTAdapter struct {
-	SignKey string
-	Version string
+	SignKey    string
+	Version    string
 	Expiration int32
 }
 
@@ -36,14 +36,14 @@ var commandPermissionMap = map[string]map[string]bool{
 func (a *JWTAdapter) GetUser(request messages.Message) (user map[string]interface{}, err *utils.Error) {
 
 	var userDataFromToken map[string]interface{}
-	userDataFromToken, err = extractUserFromRequest(request)
+	userDataFromToken, err = a.extractUserFromRequest(request)
 
 	if err != nil {
 		return
 	}
 
 	if userDataFromToken != nil {
-		userId := userDataFromToken["userId"].(string)
+		userId := userDataFromToken[constants.IdIdentifier].(string)
 		user, err = database.Adapter.Get(constants.ClassUsers, userId)
 	}
 	return
@@ -55,12 +55,13 @@ func (a *JWTAdapter) GenerateAuthData(user map[string]interface{}) (authData map
 
 	mapClaims := token.Claims.(jwt.MapClaims)
 	mapClaims["ver"] = a.Version
-	mapClaims["exp"] = time.Now().Add(time.Hour *time.Duration(a.Expiration)).Unix()
+	mapClaims["exp"] = time.Now().Add(time.Hour * time.Duration(a.Expiration)).Unix()
 	mapClaims["user"] = user
 
 	tokenString, signErr := token.SignedString([]byte(a.SignKey))
 	if signErr != nil {
 		err = &utils.Error{http.StatusInternalServerError, "Generating token failed. Reason: " + signErr.Error()}
+		return
 	}
 
 	authData = map[string]interface{}{
@@ -115,14 +116,14 @@ func getRolesOfUser(user map[string]interface{}) (roles []string, err *utils.Err
 		for _, r := range user["_roles"].([]interface{}) {
 			roles = append(roles, "role:" + r.(string))
 		}
-		roles = append(roles, "user:" + user["_id"].(string))
+		roles = append(roles, "user:" + user[constants.IdIdentifier].(string))
 	}
 	roles = append(roles, "*")
 
 	return
 }
 
-func extractUserFromRequest(request messages.Message) (user map[string]interface{}, err *utils.Error) {
+func (a *JWTAdapter) extractUserFromRequest(request messages.Message) (user map[string]interface{}, err *utils.Error) {
 
 	authHeaders := request.Headers["Authorization"]
 	if authHeaders != nil && len(authHeaders) > 0 {
@@ -132,7 +133,23 @@ func extractUserFromRequest(request messages.Message) (user map[string]interface
 			return
 		}
 		accessToken = accessToken[len("Bearer "):]
-		user, err = verifyToken(accessToken)
+
+		token, tokenErr := jwt.Parse(accessToken, func(t *jwt.Token) (interface{}, error) {
+			return []byte(a.SignKey), nil
+		})
+
+		if tokenErr != nil {
+			err = &utils.Error{http.StatusInternalServerError, "Parsing token failed. Reason: " + tokenErr.Error()}
+			return
+		}
+
+		if !token.Valid {
+			err = &utils.Error{http.StatusUnauthorized, "Token is not valid."}
+			return
+		}
+
+		mapClaims := token.Claims.(jwt.MapClaims)
+		user = mapClaims["user"].(map[string]interface{})
 	}
 	return
 }
@@ -176,26 +193,5 @@ func getPermissionsOnResources(roles []string, request messages.Message) (permis
 		"query": true,
 	}
 
-	return
-}
-
-func verifyToken(tokenString string) (userData map[string]interface{}, err *utils.Error) {
-
-	token, tokenErr := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
-		return []byte("SIGN_IN_KEY"), nil
-	})
-
-	if tokenErr != nil {
-		err = &utils.Error{http.StatusInternalServerError, "Parsing token failed. Reason: " + tokenErr.Error()}
-		return
-	}
-
-	if !token.Valid {
-		err = &utils.Error{http.StatusUnauthorized, "Token is not valid."}
-		return
-	}
-
-	mapClaims := token.Claims.(jwt.MapClaims)
-	userData = mapClaims["user"].(map[string]interface{})
 	return
 }

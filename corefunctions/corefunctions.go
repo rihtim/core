@@ -20,8 +20,6 @@ import (
 	"github.com/go-gomail/gomail"
 )
 
-var ResetPasswordConfig    map[string]string
-
 var fieldsForRegister = map[string]bool{
 	constants.IdIdentifier: false,
 	constants.AclIdentifier: false,
@@ -82,7 +80,7 @@ var Register = func(user interface{}, message messages.Message) (response messag
 
 	id := bson.NewObjectId().Hex()
 	userRole := "user:" + id
-	message.Body["_id"] = id
+	message.Body[constants.IdIdentifier] = id
 	message.Body[constants.AclIdentifier] = map[string]interface{}{
 		constants.All: map[string]bool{
 			"get": true,
@@ -145,7 +143,7 @@ var Login = func(user interface{}, message messages.Message) (response messages.
 		response.Body = accountData
 
 		userData := map[string]interface{}{
-			"userId": accountData[constants.IdIdentifier].(string),
+			constants.IdIdentifier: accountData[constants.IdIdentifier].(string),
 		}
 		authData, adErr := auth.Adapter.GenerateAuthData(userData)
 		if adErr != nil {

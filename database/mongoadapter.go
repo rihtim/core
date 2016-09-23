@@ -86,7 +86,7 @@ func (ma MongoAdapter) Create(collection string, data map[string]interface{}) (r
 	createdAt := int32(time.Now().Unix())
 	if _, hasId := data[constants.IdIdentifier]; !hasId {
 		id := bson.NewObjectId()
-		data["_id"] = id.Hex()
+		data[constants.IdIdentifier] = id.Hex()
 	}
 	data["createdAt"] = createdAt
 	data["updatedAt"] = createdAt
@@ -99,7 +99,7 @@ func (ma MongoAdapter) Create(collection string, data map[string]interface{}) (r
 	}
 
 	response = map[string]interface{}{
-		"_id": data["_id"],
+		constants.IdIdentifier: data[constants.IdIdentifier],
 		"createdAt": createdAt,
 	}
 	hookBody = data
@@ -215,7 +215,7 @@ func (ma MongoAdapter) Update(collection string, id string, data map[string]inte
 		"updatedAt": data["updatedAt"],
 	}
 	hookBody = map[string]interface{}{
-		"_id": id,
+		constants.IdIdentifier: id,
 		"updatedAt": data["updatedAt"],
 	}
 
@@ -271,7 +271,7 @@ func (ma MongoAdapter) CreateFile(data io.ReadCloser) (response map[string]inter
 	}
 
 	response = make(map[string]interface{})
-	response["_id"] = fileName
+	response[constants.IdIdentifier] = fileName
 	response["createdAt"] = int32(now.Unix())
 	hookBody = response
 	return

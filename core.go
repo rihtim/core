@@ -10,7 +10,6 @@ import (
 	"github.com/rihtim/core/log"
 	"github.com/rihtim/core/config"
 	"github.com/rihtim/core/functions"
-	"github.com/rihtim/core/auth"
 	"github.com/rihtim/core/interceptors"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/messages"
@@ -34,8 +33,6 @@ var InitWithConfig = func(fileName string) (err *utils.Error) {
 		log.Fatal(err.Message)
 		return
 	}
-
-	auth.Adapter = new(auth.JWTAdapter)
 
 	// initialising database adapter
 	database.Adapter = new(database.MongoAdapter)

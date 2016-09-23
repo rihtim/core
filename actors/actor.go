@@ -206,7 +206,7 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 
 	// check permissions of user if request is not granted by keys
 	// don't check user permissions if it is a function request. security should be handled in function itself.
-	if !isGrantedByKey && !strings.EqualFold(a.actorType, constants.ActorTypeFunctions)  {
+	if !isGrantedByKey {
 		var isGranted bool
 
 		user, err = auth.Adapter.GetUser(requestWrapper.Message)
@@ -216,7 +216,7 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 
 		isGranted, err = auth.Adapter.IsGranted(user, requestWrapper.Message)
 		// return error if not granted and not function call
-		if !isGranted {
+		if !isGranted && !strings.EqualFold(a.actorType, constants.ActorTypeFunctions) {
 			if err == nil {
 				err = &utils.Error{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}
 			}
