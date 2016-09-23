@@ -202,14 +202,21 @@ var HandleRequest = func(a *Actor, requestWrapper messages.RequestWrapper) (resp
 		return
 	}
 
-	// check permissions of user if request is not granted by keys
 	var user map[string]interface{}
-	if !isGrantedByKey {
+
+	// check permissions of user if request is not granted by keys
+	// don't check user permissions if it is a function request. security should be handled in function itself.
+	if !isGrantedByKey && !strings.EqualFold(a.actorType, constants.ActorTypeFunctions)  {
 		var isGranted bool
-		isGranted, user, err = auth.IsGranted(a.class, requestWrapper)
-		// don't check user permissions if it is a function request. security should be handled in function itself.
+
+		user, err = auth.Adapter.GetUser(requestWrapper.Message)
+		if err != nil {
+			return
+		}
+
+		isGranted, err = auth.Adapter.IsGranted(user, requestWrapper.Message)
 		// return error if not granted and not function call
-		if !isGranted && !strings.EqualFold(a.actorType, constants.ActorTypeFunctions) {
+		if !isGranted {
 			if err == nil {
 				err = &utils.Error{http.StatusUnauthorized, http.StatusText(http.StatusUnauthorized)}
 			}
