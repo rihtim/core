@@ -1,7 +1,6 @@
 package coreinterceptors
 
 import (
-	"strings"
 	"net/http"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
@@ -26,7 +25,8 @@ var PathValidator = func(user map[string]interface{}, request, response messages
 	}
 
 	for _, v := range AllowedPaths {
-		if strings.Index(request.Res, v) != -1 {
+		_, matches := utils.GetParamsFromRichUrl(utils.ConvertRichUrlToRegex(v, true), request.Res)
+		if matches {
 			return
 		}
 	}

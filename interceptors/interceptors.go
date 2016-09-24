@@ -38,6 +38,8 @@ var interceptorsMap []interceptorIndex
 
 var AddInterceptor = func(res, method string, interceptorType InterceptorType, interceptor Interceptor) {
 
+	res = utils.ConvertRichUrlToRegex(res, true)
+
 	if interceptorsMap == nil {
 		interceptorsMap = make([]interceptorIndex, 0)
 	}

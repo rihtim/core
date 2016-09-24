@@ -15,6 +15,7 @@ const (
 	CommandPut = "put"
 	CommandDelete = "delete"
 	All = "*"
+	AnyPath = ".+"
 	ListIdentifier = "results"
 	IdIdentifier = "_id"
 	RolesIdentifier = "_roles"
