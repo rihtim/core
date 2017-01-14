@@ -213,7 +213,7 @@ var ResetPassword = func(userInfo map[string]interface{}) (userId, password stri
 	if err != nil {
 		return
 	}
-	userId := accountData[constants.IdIdentifier].(string)
+	userId = accountData[constants.IdIdentifier].(string)
 
 	// generating random password
 	generatedPassword := GenerateRandomString(6)
