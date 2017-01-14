@@ -207,12 +207,13 @@ var ChangePassword = func(user interface{}, message messages.Message) (response 
 /**
  * Used to reset user's password.
  */
-var ResetPassword = func(userInfo map[string]interface{}) (password string, err *utils.Error) {
+var ResetPassword = func(userInfo map[string]interface{}) (userId, password string, err *utils.Error) {
 
 	accountData, err := getAccountData(userInfo)
 	if err != nil {
 		return
 	}
+	userId := accountData[constants.IdIdentifier].(string)
 
 	// generating random password
 	generatedPassword := GenerateRandomString(6)
@@ -223,7 +224,7 @@ var ResetPassword = func(userInfo map[string]interface{}) (password string, err 
 	}
 
 	body := map[string]interface{}{"password": string(hashedPassword)}
-	_, _, err = database.Adapter.Update(constants.ClassUsers, accountData[constants.IdIdentifier].(string), body)
+	_, _, err = database.Adapter.Update(constants.ClassUsers, userId, body)
 	if err != nil {
 		return
 	}
