@@ -554,7 +554,7 @@ var getAccountData = func(userInfo map[string]interface{}) (accountData map[stri
 		queryParam = username.(string)
 	} else if email, hasEmail := userInfo["email"]; hasEmail && email != "" {
 		queryKey = "email"
-		queryParam = email.(string)
+		queryParam = strings.ToLower(email.(string))
 	} else if facebookData, hasFacebookData := userInfo["facebook"]; hasFacebookData {
 		facebookDataAsMap := facebookData.(map[string]interface{})
 		queryParam = facebookDataAsMap["id"].(string)
