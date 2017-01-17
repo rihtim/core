@@ -26,7 +26,7 @@ var Expander = func(user map[string]interface{}, request, response messages.Mess
 
 				var expandedItem map[string]interface{}
 				var expandErr *utils.Error
-				expandedItem, expandErr = expandItem(item, editedResponse, expandConfig, tempCache)
+				expandedItem, expandErr = expandItem(item, request, expandConfig, tempCache)
 				if expandErr != nil {
 					resultsArray[i] = map[string]interface{}{"code": expandErr.Code, "message": expandErr.Message}
 				} else {
@@ -34,7 +34,7 @@ var Expander = func(user map[string]interface{}, request, response messages.Mess
 				}
 			}
 		} else {
-			editedResponse.Body, err = expandItem(editedResponse.Body, editedResponse, expandConfig, tempCache)
+			editedResponse.Body, err = expandItem(editedResponse.Body, request, expandConfig, tempCache)
 		}
 	}
 	return
