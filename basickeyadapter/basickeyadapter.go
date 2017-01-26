@@ -12,6 +12,7 @@ import (
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/keys"
 	"github.com/Sirupsen/logrus"
+	"github.com/rihtim/core/requestscope"
 )
 
 var HeaderKeyMaster = "Master-Key"
@@ -76,7 +77,8 @@ func generateKey() (string, *utils.Error) {
 	return fmt.Sprintf("%x", key), nil
 }
 
-var RequireMasterKey = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
+//var RequireMasterKey = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
+var RequireMasterKey = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
 
 	masterKeys, hasMasterKey := request.Headers[HeaderKeyMaster]
 	if !hasMasterKey || !keys.Adapter.IsKeyValid(KeyMaster, masterKeys[0]) {

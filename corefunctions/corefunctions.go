@@ -12,6 +12,7 @@ import (
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/constants"
 	"github.com/rihtim/core/validator"
+	"github.com/rihtim/core/requestscope"
 	"gopkg.in/mgo.v2/bson"
 	"github.com/rihtim/core/keys"
 	"reflect"
@@ -90,7 +91,7 @@ var Register = func(user interface{}, message messages.Message) (response messag
 		},
 	}
 
-	response.Body, finalInterceptorBody, err = database.Adapter.Create(constants.ClassUsers, message.Body)
+	response.Body, err = database.Adapter.Create(constants.ClassUsers, message.Body)
 	if err != nil {
 		return
 	}
@@ -116,17 +117,17 @@ var Register = func(user interface{}, message messages.Message) (response messag
 	return
 }
 
-var Login = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+var Login = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
-	_, hasEmail := message.Body["email"]
-	password, hasPassword := message.Body["password"]
+	_, hasEmail := request.Body["email"]
+	password, hasPassword := request.Body["password"]
 
 	if !hasEmail || !hasPassword {
 		err = &utils.Error{http.StatusBadRequest, "Login request must contain email and password."}
 		return
 	}
 
-	accountData, getAccountErr := getAccountData(message.Body)
+	accountData, getAccountErr := getAccountData(request.Body)
 	if getAccountErr != nil {
 		err = getAccountErr
 		if getAccountErr.Code == http.StatusNotFound {
@@ -164,8 +165,9 @@ var Login = func(user interface{}, message messages.Message) (response messages.
 	return
 }
 
-var ChangePassword = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+var ChangePassword = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
+	user := requestScope.Get("user")
 	userAsMap := user.(map[string]interface{})
 
 	if len(userAsMap) == 0 {
@@ -173,13 +175,13 @@ var ChangePassword = func(user interface{}, message messages.Message) (response 
 		return
 	}
 
-	password, hasPassword := message.Body["password"]
+	password, hasPassword := request.Body["password"]
 	if !hasPassword {
 		err = &utils.Error{http.StatusBadRequest, "Password must be provided in the body with field 'password'."}
 		return
 	}
 
-	newPassword, hasNewPassword := message.Body["newPassword"]
+	newPassword, hasNewPassword := request.Body["newPassword"]
 	if !hasNewPassword {
 		err = &utils.Error{http.StatusBadRequest, "New password must be provided in the body with field 'newPassword'."}
 		return
@@ -200,7 +202,7 @@ var ChangePassword = func(user interface{}, message messages.Message) (response 
 	}
 
 	body := map[string]interface{}{"password": string(hashedPassword)}
-	response.Body, _, err = database.Adapter.Update(constants.ClassUsers, userAsMap[constants.IdIdentifier].(string), body)
+	response.Body, err = database.Adapter.Update(constants.ClassUsers, userAsMap[constants.IdIdentifier].(string), body)
 	return
 }
 
@@ -224,7 +226,7 @@ var ResetPassword = func(userInfo map[string]interface{}) (userId, password stri
 	}
 
 	body := map[string]interface{}{"password": string(hashedPassword)}
-	_, _, err = database.Adapter.Update(constants.ClassUsers, userId, body)
+	_, err = database.Adapter.Update(constants.ClassUsers, userId, body)
 	if err != nil {
 		return
 	}
@@ -233,11 +235,13 @@ var ResetPassword = func(userInfo map[string]interface{}) (userId, password stri
 	return
 }
 
-var GrantRole = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+var GrantRole = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
+
+	user := requestScope.Get("user")
 
 	// check whether the headers give special permissions to perform the request
 	var isGrantedByKey bool
-	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(message.Headers)
+	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(request.Headers)
 	if err != nil {
 		return
 	}
@@ -247,19 +251,19 @@ var GrantRole = func(user interface{}, message messages.Message) (response messa
 		return
 	}
 
-	resParts := strings.Split(message.Res, "/")
+	resParts := strings.Split(request.Res, "/")
 	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
 		err = &utils.Error{http.StatusBadRequest, "Grant role can only be used on user objects. Ex: '/users/{id}/grantRole'"}
 		return
 	}
 	userIdToUpdate := resParts[2]
 
-	if message.Body == nil {
+	if request.Body == nil {
 		err = &utils.Error{http.StatusBadRequest, "Grant role request must contain body."}
 		return
 	}
 
-	rolesToGrant, hasRolesToGrant := message.Body[constants.RolesIdentifier]
+	rolesToGrant, hasRolesToGrant := request.Body[constants.RolesIdentifier]
 	if !hasRolesToGrant {
 		err = &utils.Error{http.StatusBadRequest, "Grant role request must contain list of roles in '_roles' field in body."}
 		return
@@ -309,16 +313,18 @@ var GrantRole = func(user interface{}, message messages.Message) (response messa
 	}
 
 	body := map[string]interface{}{constants.RolesIdentifier: roles}
-	response.Body, finalInterceptorBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
+	response.Body, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
 	response.Body[constants.RolesIdentifier] = roles
 	return
 }
 
-var RecallRole = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+var RecallRole = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
+
+	user := requestScope.Get("user")
 
 	// check whether the headers give special permissions to perform the request
 	var isGrantedByKey bool
-	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(message.Headers)
+	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(request.Headers)
 	if err != nil {
 		return
 	}
@@ -328,19 +334,19 @@ var RecallRole = func(user interface{}, message messages.Message) (response mess
 		return
 	}
 
-	resParts := strings.Split(message.Res, "/")
+	resParts := strings.Split(request.Res, "/")
 	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
 		err = &utils.Error{http.StatusBadRequest, "Recall role can only be used on user objects. Ex: '/users/{id}/recallRole'"}
 		return
 	}
 	userIdToUpdate := resParts[2]
 
-	if message.Body == nil {
+	if request.Body == nil {
 		err = &utils.Error{http.StatusBadRequest, "Recall role request must contain body."}
 		return
 	}
 
-	rolesToRecall, hasRolesToRecall := message.Body[constants.RolesIdentifier]
+	rolesToRecall, hasRolesToRecall := request.Body[constants.RolesIdentifier]
 	if !hasRolesToRecall {
 		err = &utils.Error{http.StatusBadRequest, "Recall role request must contain list of roles in '_roles' field in body."}
 		return
@@ -393,16 +399,18 @@ var RecallRole = func(user interface{}, message messages.Message) (response mess
 	}
 
 	body := map[string]interface{}{constants.RolesIdentifier: newRoles}
-	response.Body, finalInterceptorBody, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
+	response.Body, err = database.Adapter.Update(constants.ClassUsers, userIdToUpdate, body)
 	response.Body[constants.RolesIdentifier] = newRoles
 	return
 }
 
-var Append = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+var Append = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
+
+	user := requestScope.Get("user")
 
 	// check whether the headers give special permissions to perform the request
 	var isGrantedByKey bool
-	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(message.Headers)
+	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(request.Headers)
 	if err != nil {
 		return
 	}
@@ -412,7 +420,7 @@ var Append = func(user interface{}, message messages.Message) (response messages
 		return
 	}
 
-	resParts := strings.Split(message.Res, "/")
+	resParts := strings.Split(request.Res, "/")
 	if len(resParts) != 5 {
 		err = &utils.Error{http.StatusBadRequest, "Append can only be used on array fields. Ex: '/groups/{id}/members/appendUnique'"}
 		return
@@ -421,12 +429,12 @@ var Append = func(user interface{}, message messages.Message) (response messages
 	itemIdToUpdate := resParts[2]
 	fieldToAppend := resParts[3]
 
-	if message.Body == nil {
+	if request.Body == nil {
 		err = &utils.Error{http.StatusBadRequest, "Append request must contain body."}
 		return
 	}
 
-	itemsToAdd, hasItemsToAdd := message.Body["items"]
+	itemsToAdd, hasItemsToAdd := request.Body["items"]
 	if !hasItemsToAdd {
 		err = &utils.Error{http.StatusBadRequest, "Append request must contain list of items in 'items' field in body."}
 		return
@@ -462,16 +470,18 @@ var Append = func(user interface{}, message messages.Message) (response messages
 
 	body := make(map[string]interface{})
 	body[fieldToAppend] = fieldValueToAppend
-	response.Body, finalInterceptorBody, err = database.Adapter.Update(itemClassToUpdate, itemIdToUpdate, body)
+	response.Body, err = database.Adapter.Update(itemClassToUpdate, itemIdToUpdate, body)
 	response.Body[fieldToAppend] = fieldValueToAppend
 	return
 }
 
-var Remove = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+var Remove = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
+
+	user := requestScope.Get("user")
 
 	// check whether the headers give special permissions to perform the request
 	var isGrantedByKey bool
-	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(message.Headers)
+	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(request.Headers)
 	if err != nil {
 		return
 	}
@@ -481,7 +491,7 @@ var Remove = func(user interface{}, message messages.Message) (response messages
 		return
 	}
 
-	resParts := strings.Split(message.Res, "/")
+	resParts := strings.Split(request.Res, "/")
 	if len(resParts) != 5 {
 		err = &utils.Error{http.StatusBadRequest, "Remove can only be used on array fields. Ex: '/groups/{id}/members/appendUnique'"}
 		return
@@ -490,12 +500,12 @@ var Remove = func(user interface{}, message messages.Message) (response messages
 	itemIdToUpdate := resParts[2]
 	fieldToRemove := resParts[3]
 
-	if message.Body == nil {
+	if request.Body == nil {
 		err = &utils.Error{http.StatusBadRequest, "Remove request must contain body."}
 		return
 	}
 
-	itemsToRemove, hasItemsToRemove := message.Body["items"]
+	itemsToRemove, hasItemsToRemove := request.Body["items"]
 	if !hasItemsToRemove {
 		err = &utils.Error{http.StatusBadRequest, "Remove request must contain list of items in 'items' field in body."}
 		return
@@ -533,7 +543,7 @@ var Remove = func(user interface{}, message messages.Message) (response messages
 
 	body := make(map[string]interface{})
 	body[fieldToRemove] = newArray
-	response.Body, finalInterceptorBody, err = database.Adapter.Update(itemClassToUpdate, itemIdToUpdate, body)
+	response.Body, err = database.Adapter.Update(itemClassToUpdate, itemIdToUpdate, body)
 	response.Body[fieldToRemove] = newArray
 	return
 }

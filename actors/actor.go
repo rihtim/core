@@ -1,5 +1,6 @@
 package actors
 
+/*
 import (
 	"time"
 	"strings"
@@ -317,16 +318,6 @@ var handleGet = func(a *Actor, requestWrapper messages.RequestWrapper) (response
 	if err != nil {
 		return
 	}
-
-	// TODO remove the part below and create a 'during' interceptor for expanding fields
-	/*if requestWrapper.Message.Parameters["expand"] != nil {
-		expandConfig := requestWrapper.Message.Parameters["expand"][0]
-		if _, hasDataArray := response.Body["results"]; hasDataArray {
-			response.Body, err = modifier.ExpandArray(response.Body, expandConfig)
-		} else {
-			response.Body, err = modifier.ExpandItem(response.Body, expandConfig)
-		}
-	}*/
 	return
 }
 
@@ -389,3 +380,4 @@ var copyMessage = func(message messages.Message) (copy messages.Message) {
 	copy.RawBody = message.RawBody
 	return
 }
+*/

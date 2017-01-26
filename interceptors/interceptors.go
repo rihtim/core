@@ -3,25 +3,23 @@ package interceptors
 import (
 	"regexp"
 	"strings"
+	"github.com/rihtim/core/log"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
-	"github.com/rihtim/core/log"
+	"github.com/rihtim/core/requestscope"
 )
 
-//type Interceptor func(user map[string]interface{}, message messages.Message) (response messages.Message, err *utils.Error)
-type Interceptor func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error)
+type Interceptor func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error)
 
 type InterceptorType int
 
 const (
-	BEFORE_AUTH InterceptorType = iota
-	BEFORE_EXEC
+	BEFORE_EXEC InterceptorType = iota
 	AFTER_EXEC
 	FINAL
 )
 
 var typeNames = [...]string{
-	"BEFORE_AUTH",
 	"BEFORE_EXEC",
 	"AFTER_EXEC",
 	"FINAL",
@@ -73,7 +71,7 @@ var GetInterceptor = func(res, method string, interceptorType InterceptorType) (
 	return interceptors
 }
 
-var ExecuteInterceptors = func(res, method string, interceptorType InterceptorType, user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
+var ExecuteInterceptors = func(res, method string, interceptorType InterceptorType, requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
 
 	interceptors := GetInterceptor(res, method, interceptorType)
 
@@ -81,7 +79,7 @@ var ExecuteInterceptors = func(res, method string, interceptorType InterceptorTy
 	inputRequest = request
 	inputResponse = response
 	for _, interceptor := range interceptors {
-		outputRequest, outputResponse, err = interceptor(user, inputRequest, inputResponse)
+		outputRequest, outputResponse, err = interceptor(requestScope, inputRequest, inputResponse)
 		if err != nil {
 			return
 		}

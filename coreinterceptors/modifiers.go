@@ -8,17 +8,17 @@ import (
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/constants"
-	"github.com/rihtim/core/actors"
+	"github.com/rihtim/core/requesthandler"
+	"github.com/rihtim/core/requestscope"
 )
 
 var FilterConfig map[string]interface{}
 
-var Expander = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
+//var Expander = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
+var Expander = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
 
 	editedResponse = response
 	if request.Parameters["expand"] != nil {
-
-		tempCache := make(map[string]interface{})
 
 		expandConfig := request.Parameters["expand"][0]
 		if resultsArray, hasResultsArray := editedResponse.Body[constants.ListIdentifier].([]map[string]interface{}); hasResultsArray {
@@ -26,7 +26,7 @@ var Expander = func(user map[string]interface{}, request, response messages.Mess
 
 				var expandedItem map[string]interface{}
 				var expandErr *utils.Error
-				expandedItem, expandErr = expandItem(item, request, expandConfig, tempCache)
+				expandedItem, expandErr = expandItem(item, request, expandConfig, requestScope)
 				if expandErr != nil {
 					resultsArray[i] = map[string]interface{}{"code": expandErr.Code, "message": expandErr.Message}
 				} else {
@@ -34,13 +34,14 @@ var Expander = func(user map[string]interface{}, request, response messages.Mess
 				}
 			}
 		} else {
-			editedResponse.Body, err = expandItem(editedResponse.Body, request, expandConfig, tempCache)
+			editedResponse.Body, err = expandItem(editedResponse.Body, request, expandConfig, requestScope)
 		}
 	}
 	return
 }
 
-var Filter = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
+//var Filter = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
+var Filter = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
 
 	// TODO add the filter parameter to request and handle it
 
@@ -77,14 +78,14 @@ var filterItem = func(class string, item map[string]interface{}) (map[string]int
 	return item
 }
 
-func expandItem(item map[string]interface{}, message messages.Message, config string, cache map[string]interface{}) (result map[string]interface{}, err *utils.Error) {
+func expandItem(item map[string]interface{}, message messages.Message, config string, requestScope requestscope.RequestScope) (result map[string]interface{}, err *utils.Error) {
 
 	if !isValidExpandConfig(config) {
 		err = &utils.Error{http.StatusBadRequest, "Expand config is not valid."}
 		return
 	}
 
-	fields := seperateFields(config)
+	fields := separateFields(config)
 
 	// expand direct children
 	for _, field := range fields {
@@ -100,7 +101,7 @@ func expandItem(item map[string]interface{}, message messages.Message, config st
 
 		var expandedObject interface{}
 		if referenceObjectType.Kind() == reflect.Map && isValidReference(reference) {
-			expandedObject, err = fetchData(reference.(map[string]interface{}), message, cache)
+			expandedObject, err = fetchData(reference.(map[string]interface{}), message, requestScope)
 			if err != nil {
 				expandedObject = map[string]interface{}{"error": err.Message, "code": err.Code}
 			}
@@ -115,7 +116,7 @@ func expandItem(item map[string]interface{}, message messages.Message, config st
 						break
 					}
 
-					expandedItem, err = fetchData(arrayItem.(map[string]interface{}), message, cache)
+					expandedItem, err = fetchData(arrayItem.(map[string]interface{}), message, requestScope)
 					if err != nil {
 						expandedItem = map[string]interface{}{"error": err.Message, "code": err.Code}
 					}
@@ -134,7 +135,7 @@ func expandItem(item map[string]interface{}, message messages.Message, config st
 		if referenceObjectType.Kind() == reflect.Map && len(childsSubFields) > 0 {
 
 			var expandedChild map[string]interface{}
-			expandedChild, err = expandItem(expandedObject.(map[string]interface{}), message, childsSubFields, cache)
+			expandedChild, err = expandItem(expandedObject.(map[string]interface{}), message, childsSubFields, requestScope)
 			if err != nil {
 				return
 			}
@@ -153,7 +154,7 @@ var isValidExpandConfig = func(config string) bool {
 	return strings.Count(config, "(") == strings.Count(config, ")")
 }
 
-var seperateFields = func(fields string) (result []string) {
+var separateFields = func(fields string) (result []string) {
 
 	result = make([]string, 0)
 	lastSplitIndex := 0
@@ -205,7 +206,7 @@ var isValidReference = func(reference interface{}) (bool) {
 	return len(referenceAsMap) == 3 && hasType && hasId && hasClass && _type == "reference"
 }
 
-var fetchData = func(data map[string]interface{}, message messages.Message, cache map[string]interface{}) (object map[string]interface{}, err *utils.Error) {
+var fetchData = func(data map[string]interface{}, message messages.Message, requestScope requestscope.RequestScope) (object map[string]interface{}, err *utils.Error) {
 
 	fieldType := reflect.TypeOf(data[constants.IdIdentifier])
 
@@ -218,10 +219,10 @@ var fetchData = func(data map[string]interface{}, message messages.Message, cach
 	className := data["_class"].(string)
 
 	res := "/" + className + "/" + id
-	if item, hasItemInCache := cache[res]; hasItemInCache {
-		object = item.(map[string]interface{})
+	if requestScope.Contains(res) {
+		object = requestScope.Get(res).(map[string]interface{})
 	} else {
-		actor := actors.CreateActorForRes(res)
+		//actor := actors.CreateActorForRes(res)
 
 		requestWrapper := messages.RequestWrapper{}
 		requestWrapper.Message.Res = res
@@ -229,13 +230,14 @@ var fetchData = func(data map[string]interface{}, message messages.Message, cach
 		requestWrapper.Message.Headers = message.Headers
 
 		var response messages.Message
-		response, err = actors.HandleRequest(&actor, requestWrapper)
+		//response, err = actors.HandleRequest(&actor, requestWrapper)
+		response, _, err = requesthandler.HandleRequest(requestWrapper.Message, requestScope)
 		if err != nil {
 			object = map[string]interface{}{"code": err.Code, "message": err.Message}
 			return
 		}
 		object = response.Body
-		cache[res] = object
+		requestScope.Set(res, object)
 	}
 	return
 }

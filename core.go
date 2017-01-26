@@ -6,17 +6,17 @@ import (
 	"strings"
 	"net/http"
 	"encoding/json"
-	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/log"
+	"github.com/rihtim/core/keys"
+	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/config"
 	"github.com/rihtim/core/functions"
-	"github.com/rihtim/core/interceptors"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/messages"
-	"github.com/rihtim/core/actors"
 	"github.com/rihtim/core/constants"
-	"github.com/Sirupsen/logrus"
-	"github.com/rihtim/core/keys"
+	"github.com/rihtim/core/requestscope"
+	"github.com/rihtim/core/interceptors"
+	"github.com/rihtim/core/requesthandler"
 	"github.com/rihtim/core/basickeyadapter"
 )
 
@@ -51,7 +51,9 @@ var InitWithConfig = func(fileName string) (err *utils.Error) {
 	log.Info("Database connection is established successfully.")
 
 	keysConfig, hasKeysConfig := Configuration["keys"]
-	if !hasKeysConfig {keysConfig = make(map[string]interface{})}
+	if !hasKeysConfig {
+		keysConfig = make(map[string]interface{})
+	}
 	keys.Adapter = new(basickeyadapter.BasicKeyAdapter)
 	keys.Adapter.Init(keysConfig.(map[string]interface{}))
 
@@ -79,6 +81,60 @@ var Serve = func() {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
+
+	// parsing request
+	requestWrapper, parseReqErr := parseRequest(r)
+	if parseReqErr != nil {
+		printError(w, parseReqErr)
+		return
+	}
+	request := requestWrapper.Message
+
+	// initialising request scope
+	requestScope := requestscope.Init()
+	var err = &utils.Error{}
+	var response, editedRequest, editedResponse messages.Message
+
+	// executing BEFORE_EXEC interceptors
+	editedRequest, editedResponse, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.BEFORE_EXEC, requestScope, request, response)
+	if err != nil || !editedResponse.IsEmpty() {
+		response = editedResponse
+		buildResponse(w, response, err)
+		return
+	}
+
+	// update request if interceptor returned an edited request
+	if !editedRequest.IsEmpty() {
+		request = editedRequest
+	}
+	requestWrapper.Message = request
+
+	// execute the request
+	if functions.ContainsHandler(request.Res) {
+		response, requestScope, err = functions.ExecuteFunction(request, requestScope)
+	} else {
+		response, requestScope, err = requesthandler.HandleRequest(requestWrapper.Message, requestScope)
+	}
+
+	// editedRequest, editedResponse, requestScope, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.AFTER_EXEC, requestScope, request, response)
+	go interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.FINAL, requestScope, request, response)
+
+	// ResponseBuilder.buildResponse (w http.ResponseWriter, responseWrapper messages.RequestWrapper, responseErr *utils.Error)
+	buildResponse(w, response, err)
+}
+
+func printError(w http.ResponseWriter, err *utils.Error) {
+	bytes, cbErr := json.Marshal(map[string]string{"message":err.Message})
+	if cbErr != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		log.Error("Generating error message failed.")
+	}
+	log.Error(err.Message)
+	w.WriteHeader(err.Code)
+	io.WriteString(w, string(bytes))
+}
+
+/*func handler_old(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if origin := r.Header.Get("Origin"); origin != "" {
@@ -148,7 +204,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, string(bytes))
 	}
 	//	close(responseChannel)
-}
+}*/
 
 
 func parseRequest(r *http.Request) (requestWrapper messages.RequestWrapper, err *utils.Error) {
@@ -180,3 +236,35 @@ func parseRequest(r *http.Request) (requestWrapper messages.RequestWrapper, err 
 	return
 }
 
+func buildResponse(w http.ResponseWriter, response messages.Message, err *utils.Error) {
+
+	for k, v := range response.Headers {
+		w.Header().Set(k, v[0])
+	}
+
+	if err != nil {
+		if response.Status == 0 {
+			response.Status = err.Code
+		}
+		if response.Body == nil {
+			response.Body = map[string]interface{}{"code":err.Code, "message":err.Message}
+		}
+	}
+
+	if response.Status != 0 {
+		w.WriteHeader(response.Status)
+	}
+
+	if response.RawBody != nil {
+		w.Write(response.RawBody)
+	}
+
+	if response.Body != nil {
+		bytes, encodeErr := json.Marshal(response.Body)
+		if encodeErr != nil {
+			log.Error("Encoding response body failed.")
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+		}
+		io.WriteString(w, string(bytes))
+	}
+}

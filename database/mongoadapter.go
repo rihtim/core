@@ -77,7 +77,7 @@ func (ma *MongoAdapter) Connect() (err *utils.Error) {
 	return
 }
 
-func (ma MongoAdapter) Create(collection string, data map[string]interface{}) (response map[string]interface{}, hookBody map[string]interface{}, err *utils.Error) {
+func (ma MongoAdapter) Create(collection string, data map[string]interface{}) (response map[string]interface{}, err *utils.Error) {
 
 	sessionCopy := ma.session.Copy()
 	defer sessionCopy.Close()
@@ -102,7 +102,6 @@ func (ma MongoAdapter) Create(collection string, data map[string]interface{}) (r
 		constants.IdIdentifier: data[constants.IdIdentifier],
 		"createdAt": createdAt,
 	}
-	hookBody = data
 	return
 }
 
@@ -180,7 +179,7 @@ func (ma MongoAdapter) Query(collection string, parameters map[string][]string) 
 	return
 }
 
-func (ma MongoAdapter) Update(collection string, id string, data map[string]interface{}) (response map[string]interface{}, hookBody map[string]interface{}, err *utils.Error) {
+func (ma MongoAdapter) Update(collection string, id string, data map[string]interface{}) (response map[string]interface{}, err *utils.Error) {
 
 	sessionCopy := ma.session.Copy()
 	defer sessionCopy.Close()
@@ -214,15 +213,6 @@ func (ma MongoAdapter) Update(collection string, id string, data map[string]inte
 	response = map[string]interface{}{
 		"updatedAt": data["updatedAt"],
 	}
-	hookBody = map[string]interface{}{
-		constants.IdIdentifier: id,
-		"updatedAt": data["updatedAt"],
-	}
-
-	// add the updated fields to the hook body
-	for k, v := range data {
-		hookBody[k] = v
-	}
 	return
 }
 
@@ -239,7 +229,7 @@ func (ma MongoAdapter) Delete(collection string, id string) (response map[string
 	return
 }
 
-func (ma MongoAdapter) CreateFile(data io.ReadCloser) (response map[string]interface{}, hookBody map[string]interface{}, err *utils.Error) {
+func (ma MongoAdapter) CreateFile(data io.ReadCloser) (response map[string]interface{}, err *utils.Error) {
 
 	sessionCopy := ma.session.Copy()
 	defer sessionCopy.Close()
@@ -273,7 +263,6 @@ func (ma MongoAdapter) CreateFile(data io.ReadCloser) (response map[string]inter
 	response = make(map[string]interface{})
 	response[constants.IdIdentifier] = fileName
 	response["createdAt"] = int32(now.Unix())
-	hookBody = response
 	return
 
 	return

@@ -1,14 +1,15 @@
 package functions
 
 import (
+	"regexp"
+	"strings"
+	"github.com/rihtim/core/log"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
-	"github.com/rihtim/core/log"
-	"regexp"
-"strings"
+	"github.com/rihtim/core/requestscope"
 )
 
-type FunctionHandler func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error)
+type FunctionHandler func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error)
 
 var functionHandlers map[string]FunctionHandler
 
@@ -23,6 +24,18 @@ var AddFunctionHandler = func(path string, handler FunctionHandler) {
 	log.Info("Function added for path: " + path)
 }
 
+var ContainsHandler = func(path string) bool {
+
+	for handlerPath, _ := range functionHandlers {
+		validator, rexpErr := regexp.Compile(handlerPath)
+		if !(strings.EqualFold(path, handlerPath) || (rexpErr == nil && validator.MatchString(path))) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
 var GetFunctionHandler = func(path string) (handler FunctionHandler) {
 
 	for handlerPath, h := range functionHandlers {
@@ -35,3 +48,9 @@ var GetFunctionHandler = func(path string) (handler FunctionHandler) {
 	}
 	return
 }
+
+var ExecuteFunction = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
+	functionHandler := GetFunctionHandler(request.Res)
+	response, requestScope, err = functionHandler(request, requestScope)
+	return
+} 
