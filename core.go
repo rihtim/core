@@ -94,29 +94,50 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	requestScope := requestscope.Init()
 	var err = &utils.Error{}
 	var response, editedRequest, editedResponse messages.Message
+	var editedRequestScope requestscope.RequestScope
 
 	// executing BEFORE_EXEC interceptors
-	editedRequest, editedResponse, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.BEFORE_EXEC, requestScope, request, response)
-	if err != nil || !editedResponse.IsEmpty() {
+	editedRequest, editedResponse, editedRequestScope, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.BEFORE_EXEC, requestScope, request, response)
+	if !editedResponse.IsEmpty() {
 		response = editedResponse
-		buildResponse(w, response, err)
-		return
+
+	} else if err == nil {
+		// update request if interceptor returned an edited request
+		if !editedRequest.IsEmpty() {
+			request = editedRequest
+		}
+
+		// update request scope if interceptor returned an editedRequestScope
+		if !editedRequestScope.IsEmpty() {
+			requestScope = editedRequestScope
+		}
+		requestWrapper.Message = request
+
+		// execute the request
+		if functions.ContainsHandler(request.Res) {
+			response, editedRequestScope, err = functions.ExecuteFunction(request, requestScope)
+		} else {
+			response, editedRequestScope, err = requesthandler.HandleRequest(requestWrapper.Message, requestScope)
+		}
 	}
 
-	// update request if interceptor returned an edited request
-	if !editedRequest.IsEmpty() {
-		request = editedRequest
-	}
-	requestWrapper.Message = request
-
-	// execute the request
-	if functions.ContainsHandler(request.Res) {
-		response, requestScope, err = functions.ExecuteFunction(request, requestScope)
-	} else {
-		response, requestScope, err = requesthandler.HandleRequest(requestWrapper.Message, requestScope)
+	// update request scope if interceptor returned an editedRequestScope
+	if !editedRequestScope.IsEmpty() {
+		requestScope = editedRequestScope
 	}
 
-	// editedRequest, editedResponse, requestScope, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.AFTER_EXEC, requestScope, request, response)
+	_, editedResponse, editedRequestScope, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.AFTER_EXEC, requestScope, request, response)
+
+	// update response if interceptor returned an edited response
+	if !editedResponse.IsEmpty() {
+		response = editedResponse
+	}
+
+	// update request scope if interceptor returned an editedRequestScope
+	if !editedRequestScope.IsEmpty() {
+		requestScope = editedRequestScope
+	}
+
 	go interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.FINAL, requestScope, request, response)
 
 	// ResponseBuilder.buildResponse (w http.ResponseWriter, responseWrapper messages.RequestWrapper, responseErr *utils.Error)
@@ -238,6 +259,7 @@ func parseRequest(r *http.Request) (requestWrapper messages.RequestWrapper, err 
 
 func buildResponse(w http.ResponseWriter, response messages.Message, err *utils.Error) {
 
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	for k, v := range response.Headers {
 		w.Header().Set(k, v[0])
 	}

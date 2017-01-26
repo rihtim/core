@@ -29,17 +29,23 @@ var restrictedFieldsForUpdate = map[string]bool{
 var HandleRequest = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, updatedRequestscope requestscope.RequestScope, err *utils.Error) {
 
 	var editedRequest, editedResponse messages.Message
+	var editedRequestScope requestscope.RequestScope
 
 	// call interceptors before execution. return if response or error is not nil.
-	editedRequest, editedResponse, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.BEFORE_EXEC, requestScope, request, response)
+	editedRequest, editedResponse, editedRequestScope, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.BEFORE_EXEC, requestScope, request, response)
 	if err != nil || !editedResponse.IsEmpty() {
 		response = editedResponse
 		return
 	}
 
-	// update request if interceptor returned updatedRequest
+	// update request if interceptor returned an editedRequest
 	if !editedRequest.IsEmpty() {
 		request = editedRequest
+	}
+
+	// update request scope if interceptor returned an editedRequestScope
+	if !editedRequestScope.IsEmpty() {
+		requestScope = editedRequestScope
 	}
 
 	// execute request
@@ -57,9 +63,14 @@ var HandleRequest = func(request messages.Message, requestScope requestscope.Req
 	}
 
 	// call interceptors after execution. return value of the editedRequest is ignored because the execution is done
-	_, editedResponse, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.AFTER_EXEC, requestScope, request, response)
+	_, editedResponse, editedRequestScope, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.AFTER_EXEC, requestScope, request, response)
 	if err != nil {
 		return
+	}
+
+	// update request scope if interceptor returned an editedRequestScope
+	if !editedRequestScope.IsEmpty() {
+		requestScope = editedRequestScope
 	}
 
 	// replace the response with the given response but do not return.

@@ -9,7 +9,7 @@ import (
 	"github.com/rihtim/core/requestscope"
 )
 
-type Interceptor func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error)
+type Interceptor func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error)
 
 type InterceptorType int
 
@@ -71,15 +71,18 @@ var GetInterceptor = func(res, method string, interceptorType InterceptorType) (
 	return interceptors
 }
 
-var ExecuteInterceptors = func(res, method string, interceptorType InterceptorType, requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
+var ExecuteInterceptors = func(res, method string, interceptorType InterceptorType, requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	interceptors := GetInterceptor(res, method, interceptorType)
 
 	var inputRequest, outputRequest, inputResponse, outputResponse messages.Message
+	var inputRequestScope, outputRequestScope requestscope.RequestScope
+
 	inputRequest = request
 	inputResponse = response
+	inputRequestScope = requestScope
 	for _, interceptor := range interceptors {
-		outputRequest, outputResponse, err = interceptor(requestScope, inputRequest, inputResponse)
+		outputRequest, outputResponse, outputRequestScope, err = interceptor(inputRequestScope, inputRequest, inputResponse)
 		if err != nil {
 			return
 		}
@@ -91,8 +94,12 @@ var ExecuteInterceptors = func(res, method string, interceptorType InterceptorTy
 		if !outputResponse.IsEmpty() {
 			inputResponse = outputResponse
 		}
+		if !outputRequestScope.IsEmpty() {
+			inputRequestScope = outputRequestScope
+		}
 	}
 	editedRequest = inputRequest
 	editedResponse = inputResponse
+	editedRequestScope = inputRequestScope
 	return
 }

@@ -14,8 +14,7 @@ import (
 
 var FilterConfig map[string]interface{}
 
-//var Expander = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
-var Expander = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
+var Expander = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	editedResponse = response
 	if request.Parameters["expand"] != nil {
@@ -40,8 +39,7 @@ var Expander = func(requestScope requestscope.RequestScope, request, response me
 	return
 }
 
-//var Filter = func(user map[string]interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
-var Filter = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, err *utils.Error) {
+var Filter = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	// TODO add the filter parameter to request and handle it
 
