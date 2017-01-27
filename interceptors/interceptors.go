@@ -16,12 +16,14 @@ type InterceptorType int
 const (
 	BEFORE_EXEC InterceptorType = iota
 	AFTER_EXEC
+	ON_ERROR
 	FINAL
 )
 
 var typeNames = [...]string{
 	"BEFORE_EXEC",
 	"AFTER_EXEC",
+	"ON_ERROR",
 	"FINAL",
 }
 
@@ -73,6 +75,7 @@ var GetInterceptor = func(res, method string, interceptorType InterceptorType) (
 
 var ExecuteInterceptors = func(res, method string, interceptorType InterceptorType, requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
+	log.Debug("ExecuteInterceptors: " + method + " " + typeNames[int(interceptorType)] + " " + res)
 	interceptors := GetInterceptor(res, method, interceptorType)
 
 	var inputRequest, outputRequest, inputResponse, outputResponse messages.Message

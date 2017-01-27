@@ -6,7 +6,6 @@ import (
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/constants"
-	"github.com/rihtim/core/interceptors"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/validator"
 	"github.com/rihtim/core/requestscope"
@@ -26,26 +25,36 @@ var restrictedFieldsForUpdate = map[string]bool{
 	"updatedAt": false,
 }
 
+var AllowedMethodsOfResourceTypes = map[string]map[string]bool{
+	"collection": {
+		"get": true,
+		"post": true,
+	},
+	"model": {
+		"put": true,
+		"delete": true,
+		"get": true,
+	},
+};
+
 var HandleRequest = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, updatedRequestscope requestscope.RequestScope, err *utils.Error) {
 
-	var editedRequest, editedResponse messages.Message
-	var editedRequestScope requestscope.RequestScope
-
-	// call interceptors before execution. return if response or error is not nil.
-	editedRequest, editedResponse, editedRequestScope, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.BEFORE_EXEC, requestScope, request, response)
-	if err != nil || !editedResponse.IsEmpty() {
-		response = editedResponse
+	// check if the method is allowed on the resource type
+	var resourceType string
+	resPartCount := len(strings.Split(request.Res, "/"))
+	if resPartCount == 2 {
+		resourceType = "collection"
+	} else if resPartCount == 3 {
+		resourceType = "model"
+	} else {
+		err = &utils.Error{http.StatusMethodNotAllowed, "Invalid resource schema."}
 		return
 	}
 
-	// update request if interceptor returned an editedRequest
-	if !editedRequest.IsEmpty() {
-		request = editedRequest
-	}
-
-	// update request scope if interceptor returned an editedRequestScope
-	if !editedRequestScope.IsEmpty() {
-		requestScope = editedRequestScope
+	allowedMethods := AllowedMethodsOfResourceTypes[resourceType]
+	if isMethodAllowed := allowedMethods[strings.ToLower(request.Command)]; !isMethodAllowed {
+		err = &utils.Error{http.StatusMethodNotAllowed, "Method not allowed on the resource type."}
+		return
 	}
 
 	// execute request
@@ -58,29 +67,7 @@ var HandleRequest = func(request messages.Message, requestScope requestscope.Req
 	} else if strings.EqualFold(request.Command, constants.CommandDelete) {
 		response, err = handleDelete(request)
 	}
-	if err != nil {
-		return
-	}
 
-	// call interceptors after execution. return value of the editedRequest is ignored because the execution is done
-	_, editedResponse, editedRequestScope, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.AFTER_EXEC, requestScope, request, response)
-	if err != nil {
-		return
-	}
-
-	// update request scope if interceptor returned an editedRequestScope
-	if !editedRequestScope.IsEmpty() {
-		requestScope = editedRequestScope
-	}
-
-	// replace the response with the given response but do not return.
-	if !editedResponse.IsEmpty() {
-		response = editedResponse
-	}
-
-	// call interceptors on final. all the return values are ignored because the final interceptor
-	// doesn't have any effect on the request or response. it serves as trigger after the request
-	go interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.FINAL, requestScope, request, response)
 	return
 }
 

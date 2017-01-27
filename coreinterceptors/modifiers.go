@@ -10,11 +10,14 @@ import (
 	"github.com/rihtim/core/constants"
 	"github.com/rihtim/core/requesthandler"
 	"github.com/rihtim/core/requestscope"
+	"github.com/rihtim/core/log"
 )
 
 var FilterConfig map[string]interface{}
 
 var Expander = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
+
+	log.Debug("Interceptor: Expander")
 
 	editedResponse = response
 	if request.Parameters["expand"] != nil {

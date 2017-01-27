@@ -83,42 +83,38 @@ var Serve = func() {
 func handler(w http.ResponseWriter, r *http.Request) {
 
 	// parsing request
-	requestWrapper, parseReqErr := parseRequest(r)
+	request, parseReqErr := parseRequest(r)
 	if parseReqErr != nil {
 		printError(w, parseReqErr)
 		return
 	}
-	request := requestWrapper.Message
 
-	// initialising request scope
 	requestScope := requestscope.Init()
-	var err = &utils.Error{}
-	var response, editedRequest, editedResponse messages.Message
+
+	response, _, err := HandleRequest(request, requestScope)
+	buildResponse(w, response, err)
+}
+
+var HandleRequest = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, updatedRequestscope requestscope.RequestScope, err *utils.Error) {
+
+	var editedRequest, editedResponse messages.Message
 	var editedRequestScope requestscope.RequestScope
 
-	// executing BEFORE_EXEC interceptors
+	// execute BEFORE_EXEC interceptors
 	editedRequest, editedResponse, editedRequestScope, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.BEFORE_EXEC, requestScope, request, response)
+	if err != nil {
+		response, err = handleError(request, editedResponse, requestScope, err)
+		return
+	}
+
 	if !editedResponse.IsEmpty() {
 		response = editedResponse
+		return
+	}
 
-	} else if err == nil {
-		// update request if interceptor returned an edited request
-		if !editedRequest.IsEmpty() {
-			request = editedRequest
-		}
-
-		// update request scope if interceptor returned an editedRequestScope
-		if !editedRequestScope.IsEmpty() {
-			requestScope = editedRequestScope
-		}
-		requestWrapper.Message = request
-
-		// execute the request
-		if functions.ContainsHandler(request.Res) {
-			response, editedRequestScope, err = functions.ExecuteFunction(request, requestScope)
-		} else {
-			response, editedRequestScope, err = requesthandler.HandleRequest(requestWrapper.Message, requestScope)
-		}
+	// update request if interceptor returned an edited request
+	if !editedRequest.IsEmpty() {
+		request = editedRequest
 	}
 
 	// update request scope if interceptor returned an editedRequestScope
@@ -126,6 +122,24 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		requestScope = editedRequestScope
 	}
 
+	// execute the request
+	if functions.ContainsHandler(request.Res) {
+		response, editedRequestScope, err = functions.ExecuteFunction(request, requestScope)
+	} else {
+		response, editedRequestScope, err = requesthandler.HandleRequest(request, requestScope)
+	}
+
+	if err != nil {
+		response, err = handleError(request, editedResponse, requestScope, err)
+		return
+	}
+
+	// update request scope if interceptor returned an editedRequestScope
+	if !editedRequestScope.IsEmpty() {
+		requestScope = editedRequestScope
+	}
+
+	// execute AFTER_EXEC interceptors
 	_, editedResponse, editedRequestScope, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.AFTER_EXEC, requestScope, request, response)
 
 	// update response if interceptor returned an edited response
@@ -138,10 +152,29 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		requestScope = editedRequestScope
 	}
 
+	// execute FINAL interceptors in goroutine
 	go interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.FINAL, requestScope, request, response)
 
-	// ResponseBuilder.buildResponse (w http.ResponseWriter, responseWrapper messages.RequestWrapper, responseErr *utils.Error)
-	buildResponse(w, response, err)
+	return
+}
+
+func handleError(request, response messages.Message, requestScope requestscope.RequestScope, err *utils.Error) (returnedResponse messages.Message, returnedErr *utils.Error) {
+
+	returnedErr = err
+	returnedResponse = response
+
+	requestScope.Set("error", err)
+
+	var editedResponse messages.Message
+	_, editedResponse, _, err = interceptors.ExecuteInterceptors(request.Res, request.Command, interceptors.ON_ERROR, requestScope, request, response)
+
+	if err != nil {
+		returnedErr = err
+	}
+	if !editedResponse.IsEmpty() {
+		returnedResponse = editedResponse
+	}
+	return
 }
 
 func printError(w http.ResponseWriter, err *utils.Error) {
@@ -228,26 +261,28 @@ func printError(w http.ResponseWriter, err *utils.Error) {
 }*/
 
 
-func parseRequest(r *http.Request) (requestWrapper messages.RequestWrapper, err *utils.Error) {
+func parseRequest(r *http.Request) (request messages.Message, err *utils.Error) {
 
 	res := strings.TrimRight(r.URL.Path, "/")
 	if strings.EqualFold(res, "") {
 		err = &utils.Error{http.StatusBadRequest, "Root path '/' cannot be requested directly. " }
 		return
 	}
-	requestWrapper.Message.Res = res
-	requestWrapper.Message.Command = strings.ToLower(r.Method)
-	requestWrapper.Message.Headers = r.Header
-	requestWrapper.Message.Parameters = r.URL.Query()
+	request = messages.Message{
+		Res: res,
+		Command: strings.ToLower(r.Method),
+		Headers: r.Header,
+		Parameters: r.URL.Query(),
+	}
 
 	if strings.Index(res, constants.ResourceTypeFiles) == 0 {
 		if r.Body == nil {
 			err = &utils.Error{http.StatusBadRequest, "Request body cannot be empty for create file requests."}
 			return
 		}
-		requestWrapper.Message.ReqBodyRaw = r.Body
+		request.ReqBodyRaw = r.Body
 	} else {
-		readErr := json.NewDecoder(r.Body).Decode(&requestWrapper.Message.Body)
+		readErr := json.NewDecoder(r.Body).Decode(&request.Body)
 		if readErr != nil && readErr != io.EOF {
 			err = &utils.Error{http.StatusBadRequest, "Request body is not a valid json."}
 			return

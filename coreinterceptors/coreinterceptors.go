@@ -2,8 +2,10 @@ package coreinterceptors
 
 import (
 	"net/http"
+	"github.com/rihtim/core/log"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
+	"github.com/rihtim/core/functions"
 	"github.com/rihtim/core/requestscope"
 )
 
@@ -20,6 +22,12 @@ var NotFound = func(requestScope requestscope.RequestScope, request, response me
 }
 
 var PathValidator = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
+
+	log.Debug("Interceptor: PathValidator")
+
+	if functions.ContainsHandler(request.Res) {
+		return
+	}
 
 	if AllowedPaths == nil {
 		return
