@@ -96,6 +96,12 @@ var ExecuteInterceptors = func(res, method string, interceptorType InterceptorTy
 		}
 		if !outputResponse.IsEmpty() {
 			inputResponse = outputResponse
+
+			// BEFORE_EXEC interceptors' editedResponse cuts the request. so skip the rest and return the response
+			if interceptorType == BEFORE_EXEC {
+				editedResponse = inputResponse
+				return
+			}
 		}
 		if !outputRequestScope.IsEmpty() {
 			inputRequestScope = outputRequestScope

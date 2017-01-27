@@ -14,7 +14,7 @@ const (
 	CommandPost = "post"
 	CommandPut = "put"
 	CommandDelete = "delete"
-	CommandOptions = "OPTIONS"
+	CommandOptions = "options"
 	All = "*"
 	AnyPath = ".+"
 	ListIdentifier = "results"

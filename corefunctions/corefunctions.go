@@ -1,23 +1,22 @@
 package corefunctions
 
 import (
+	"time"
 	"strings"
+	"reflect"
 	"net/http"
 	"math/rand"
 	"encoding/json"
+	"gopkg.in/mgo.v2/bson"
 	"golang.org/x/crypto/bcrypt"
-	"github.com/rihtim/core/utils"
+	"github.com/go-gomail/gomail"
 	"github.com/rihtim/core/auth"
+	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/constants"
 	"github.com/rihtim/core/validator"
 	"github.com/rihtim/core/requestscope"
-	"gopkg.in/mgo.v2/bson"
-	"github.com/rihtim/core/keys"
-	"reflect"
-	"time"
-	"github.com/go-gomail/gomail"
 )
 
 var fieldsForRegister = map[string]bool{
@@ -237,19 +236,10 @@ var ResetPassword = func(userInfo map[string]interface{}) (userId, password stri
 
 var GrantRole = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
-	user := requestScope.Get("user")
-
-	// check whether the headers give special permissions to perform the request
-	var isGrantedByKey bool
-	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(request.Headers)
-	if err != nil {
-		return
-	}
-
-	if !isGrantedByKey && len(user.(map[string]interface{})) == 0 {
+	if !requestScope.Contains("user") {
 		err = &utils.Error{http.StatusUnauthorized, "Grant role request requires access token."}
-		return
 	}
+	user := requestScope.Get("user")
 
 	resParts := strings.Split(request.Res, "/")
 	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
@@ -269,28 +259,26 @@ var GrantRole = func(request messages.Message, requestScope requestscope.Request
 		return
 	}
 
-	if !isGrantedByKey {
-		userAsMap := user.(map[string]interface{})
-		requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
-		if !requestOwnersHasRoles {
-			err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
-			return
-		}
+	userAsMap := user.(map[string]interface{})
+	requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
+	if !requestOwnersHasRoles {
+		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
+		return
+	}
 
-		matchingRoleCount := 0
-		for _, roleToGrant := range rolesToGrant.([]interface{}) {
-			for _, userRole := range requestOwnersRoles.([]interface{}) {
-				if strings.EqualFold(roleToGrant.(string), userRole.(string)) {
-					matchingRoleCount++
-					continue
-				}
+	matchingRoleCount := 0
+	for _, roleToGrant := range rolesToGrant.([]interface{}) {
+		for _, userRole := range requestOwnersRoles.([]interface{}) {
+			if strings.EqualFold(roleToGrant.(string), userRole.(string)) {
+				matchingRoleCount++
+				continue
 			}
 		}
+	}
 
-		if matchingRoleCount != len(rolesToGrant.([]interface{})) {
-			err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to grant the given roles."}
-			return
-		}
+	if matchingRoleCount != len(rolesToGrant.([]interface{})) {
+		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to grant the given roles."}
+		return
 	}
 
 	var userToUpdate map[string]interface{}
@@ -320,19 +308,10 @@ var GrantRole = func(request messages.Message, requestScope requestscope.Request
 
 var RecallRole = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
+	if !requestScope.Contains("user") {
+		err = &utils.Error{http.StatusUnauthorized, "Recall role request requires access token."}
+	}
 	user := requestScope.Get("user")
-
-	// check whether the headers give special permissions to perform the request
-	var isGrantedByKey bool
-	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(request.Headers)
-	if err != nil {
-		return
-	}
-
-	if !isGrantedByKey && len(user.(map[string]interface{})) == 0 {
-		err = &utils.Error{http.StatusUnauthorized, "Grant role request requires access token."}
-		return
-	}
 
 	resParts := strings.Split(request.Res, "/")
 	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
@@ -352,28 +331,26 @@ var RecallRole = func(request messages.Message, requestScope requestscope.Reques
 		return
 	}
 
-	if !isGrantedByKey {
-		userAsMap := user.(map[string]interface{})
-		requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
-		if !requestOwnersHasRoles {
-			err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
-			return
-		}
+	userAsMap := user.(map[string]interface{})
+	requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
+	if !requestOwnersHasRoles {
+		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
+		return
+	}
 
-		matchingRoleCount := 0
-		for _, roleToRecall := range rolesToRecall.([]interface{}) {
-			for _, userRole := range requestOwnersRoles.([]interface{}) {
-				if strings.EqualFold(roleToRecall.(string), userRole.(string)) {
-					matchingRoleCount++
-					continue
-				}
+	matchingRoleCount := 0
+	for _, roleToRecall := range rolesToRecall.([]interface{}) {
+		for _, userRole := range requestOwnersRoles.([]interface{}) {
+			if strings.EqualFold(roleToRecall.(string), userRole.(string)) {
+				matchingRoleCount++
+				continue
 			}
 		}
+	}
 
-		if matchingRoleCount != len(rolesToRecall.([]interface{})) {
-			err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to recall the given roles."}
-			return
-		}
+	if matchingRoleCount != len(rolesToRecall.([]interface{})) {
+		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to recall the given roles."}
+		return
 	}
 
 	var userToUpdate map[string]interface{}
@@ -406,18 +383,8 @@ var RecallRole = func(request messages.Message, requestScope requestscope.Reques
 
 var Append = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
-	user := requestScope.Get("user")
-
-	// check whether the headers give special permissions to perform the request
-	var isGrantedByKey bool
-	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(request.Headers)
-	if err != nil {
-		return
-	}
-
-	if !isGrantedByKey && len(user.(map[string]interface{})) == 0 {
+	if !requestScope.Contains("user") {
 		err = &utils.Error{http.StatusUnauthorized, "Append request requires access token."}
-		return
 	}
 
 	resParts := strings.Split(request.Res, "/")
@@ -477,18 +444,8 @@ var Append = func(request messages.Message, requestScope requestscope.RequestSco
 
 var Remove = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
-	user := requestScope.Get("user")
-
-	// check whether the headers give special permissions to perform the request
-	var isGrantedByKey bool
-	isGrantedByKey, err = keys.Adapter.CheckKeyPermissions(request.Headers)
-	if err != nil {
-		return
-	}
-
-	if !isGrantedByKey && len(user.(map[string]interface{})) == 0 {
-		err = &utils.Error{http.StatusUnauthorized, "Remove request requires authentication."}
-		return
+	if !requestScope.Contains("user") {
+		err = &utils.Error{http.StatusUnauthorized, "Remove request requires access token."}
 	}
 
 	resParts := strings.Split(request.Res, "/")

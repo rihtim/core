@@ -2,63 +2,20 @@ package core
 
 import (
 	"io"
-	"os"
 	"strings"
 	"net/http"
 	"encoding/json"
 	"github.com/rihtim/core/log"
-	"github.com/rihtim/core/keys"
 	"github.com/rihtim/core/utils"
-	"github.com/rihtim/core/config"
 	"github.com/rihtim/core/functions"
-	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/constants"
 	"github.com/rihtim/core/requestscope"
 	"github.com/rihtim/core/interceptors"
 	"github.com/rihtim/core/requesthandler"
-	"github.com/rihtim/core/basickeyadapter"
 )
 
 var Configuration map[string]interface{}
-//var RootActor actors.Actor
-
-var InitWithConfig = func(fileName string) (err *utils.Error) {
-
-	log.Info("Initialising with config file: " + fileName)
-
-	// reading and parsing configuration
-	Configuration, err = config.ReadConfig(fileName)
-	if err != nil {
-		log.Fatal(err.Message)
-		return
-	}
-
-	// initialising database adapter
-	database.Adapter = new(database.MongoAdapter)
-	dbInitErr := database.Adapter.Init(Configuration["mongo"].(map[string]interface{}))
-	if dbInitErr != nil {
-		log.Fatal(dbInitErr.Message)
-		os.Exit(dbInitErr.Code)
-	}
-
-	// connecting to the database
-	dbConnErr := database.Adapter.Connect()
-	if dbConnErr != nil {
-		log.Fatal(dbConnErr.Message)
-		os.Exit(dbConnErr.Code)
-	}
-	log.Info("Database connection is established successfully.")
-
-	keysConfig, hasKeysConfig := Configuration["keys"]
-	if !hasKeysConfig {
-		keysConfig = make(map[string]interface{})
-	}
-	keys.Adapter = new(basickeyadapter.BasicKeyAdapter)
-	keys.Adapter.Init(keysConfig.(map[string]interface{}))
-
-	return
-}
 
 var AddFunctionHandler = func(path string, handler functions.FunctionHandler) {
 	functions.AddFunctionHandler(path, handler)
@@ -95,7 +52,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	buildResponse(w, response, err)
 }
 
-var HandleRequest = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, updatedRequestscope requestscope.RequestScope, err *utils.Error) {
+var HandleRequest = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, updatedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	var editedRequest, editedResponse messages.Message
 	var editedRequestScope requestscope.RequestScope

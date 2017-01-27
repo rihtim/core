@@ -34,5 +34,5 @@ func (rs RequestScope) Contains(key string) bool {
 }
 
 func (rs RequestScope) IsEmpty() bool {
-	return rs.data == nil || len(rs.data) != 0
+	return rs.data == nil || len(rs.data) == 0
 }
