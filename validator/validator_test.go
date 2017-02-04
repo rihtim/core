@@ -5,7 +5,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-
 func TestGrantRole(t *testing.T) {
 
 	Convey("Should return error for containing fields", t, func() {

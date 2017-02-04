@@ -1,12 +1,34 @@
 package validator
 
 import (
-	"github.com/rihtim/core/utils"
 	"net/http"
-	"github.com/rihtim/core/requestscope"
+	"encoding/json"
+	"gopkg.in/validator.v2"
+	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
+	"github.com/rihtim/core/requestscope"
 )
 
+var Validator *validator.Validator
+
+var VariableValidator = func(requestScope requestscope.RequestScope, addrToStructSample interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
+
+	if bytes, encodeErr := json.Marshal(request.Body); encodeErr != nil {
+		err = &utils.Error{http.StatusInternalServerError, "Variable validation failed. Reason: " + encodeErr.Error()}
+		return
+	} else if decodeErr := json.Unmarshal(bytes, addrToStructSample); decodeErr != nil {
+		err = &utils.Error{http.StatusInternalServerError, "Variable validation failed. Reason: " + decodeErr.Error()}
+		return
+	}
+
+	if validateErr := Validator.Validate(addrToStructSample); validateErr != nil {
+		err = &utils.Error{http.StatusInternalServerError, "Variable validation failed. Reason: " + validateErr.Error()}
+	}
+	return
+}
+
+// Validates the request.Body against the extras with the ValidateInputFields.
+// extras is expected to be map[string]bool which indicates the fields that should and shouldn't be in the request.Body
 var InputFieldValidator = func(requestScope requestscope.RequestScope, extras interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	if extras == nil {
@@ -17,6 +39,8 @@ var InputFieldValidator = func(requestScope requestscope.RequestScope, extras in
 	return
 }
 
+// Validates the request.Body against the extras with the ValidateExactInputFields.
+// extras is expected to be map[string]bool which indicates the fields that should and shouldn't be in the request.Body
 var ExactInputFieldValidator = func(requestScope requestscope.RequestScope, extras interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	if extras == nil {
