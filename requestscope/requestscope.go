@@ -17,7 +17,7 @@ func Init() RequestScope {
 }
 
 func (rs RequestScope) Set(key string, value interface{}) {
-	log.Debug("RequestScope.Set:", key)
+	log.Debug("RequestScope.Set:", key, value)
 	rs.data[key] = value
 }
 

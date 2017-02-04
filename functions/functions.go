@@ -21,7 +21,7 @@ var AddFunctionHandler = func(path string, handler FunctionHandler) {
 		functionHandlers = make(map[string]FunctionHandler)
 	}
 	functionHandlers[path] = handler
-	log.Info("Function added for path: " + path)
+	log.Debug("Function added for path: " + path)
 }
 
 var ContainsHandler = func(path string) bool {

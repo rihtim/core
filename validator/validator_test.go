@@ -50,6 +50,20 @@ func TestGrantRole(t *testing.T) {
 		So(err, ShouldNotBeNil)
 	})
 
+	Convey("Should return error for unexpected fields", t, func() {
+
+		input := map[string]interface{}{
+			"a":"a",
+			"b":"b",
+			"c":"c",
+		}
+
+		restrictedFields := map[string]bool{"b":false}
+		err := ValidateInputFields(restrictedFields, input)
+
+		So(err, ShouldNotBeNil)
+	})
+
 	Convey("Should not return error", t, func() {
 
 		input := map[string]interface{}{

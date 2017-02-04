@@ -56,15 +56,15 @@ var GenerateRandomString = func(n int) string {
 	return string(b)
 }
 
-var Register = func(user interface{}, message messages.Message) (response messages.Message, finalInterceptorBody map[string]interface{}, err *utils.Error) {
+var Register = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
-	err = validator.ValidateInputFields(fieldsForRegister, message.Body)
+	err = validator.ValidateInputFields(fieldsForRegister, request.Body)
 	if err != nil {
 		return
 	}
-	password := message.Body["password"]
+	password := request.Body["password"]
 
-	existingAccount, _ := getAccountData(message.Body)
+	existingAccount, _ := getAccountData(request.Body)
 	if existingAccount != nil {
 		err = &utils.Error{http.StatusConflict, "User with same email already exists."}
 		return
@@ -75,12 +75,12 @@ var Register = func(user interface{}, message messages.Message) (response messag
 		err = &utils.Error{http.StatusInternalServerError, "Hashing password failed."}
 		return
 	}
-	message.Body["password"] = string(hashedPassword)
+	request.Body["password"] = string(hashedPassword)
 
 	id := bson.NewObjectId().Hex()
 	userRole := "user:" + id
-	message.Body[constants.IdIdentifier] = id
-	message.Body[constants.AclIdentifier] = map[string]interface{}{
+	request.Body[constants.IdIdentifier] = id
+	request.Body[constants.AclIdentifier] = map[string]interface{}{
 		constants.All: map[string]bool{
 			"get": true,
 		},
@@ -90,7 +90,7 @@ var Register = func(user interface{}, message messages.Message) (response messag
 		},
 	}
 
-	response.Body, err = database.Adapter.Create(constants.ClassUsers, message.Body)
+	response.Body, err = database.Adapter.Create(constants.ClassUsers, request.Body)
 	if err != nil {
 		return
 	}
@@ -239,7 +239,7 @@ var GrantRole = func(request messages.Message, requestScope requestscope.Request
 	if !requestScope.Contains("user") {
 		err = &utils.Error{http.StatusUnauthorized, "Grant role request requires access token."}
 	}
-	user := requestScope.Get("user")
+	//user := requestScope.Get("user")
 
 	resParts := strings.Split(request.Res, "/")
 	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
@@ -259,7 +259,7 @@ var GrantRole = func(request messages.Message, requestScope requestscope.Request
 		return
 	}
 
-	userAsMap := user.(map[string]interface{})
+	/*userAsMap := user.(map[string]interface{})
 	requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
 	if !requestOwnersHasRoles {
 		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
@@ -279,7 +279,7 @@ var GrantRole = func(request messages.Message, requestScope requestscope.Request
 	if matchingRoleCount != len(rolesToGrant.([]interface{})) {
 		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to grant the given roles."}
 		return
-	}
+	}*/
 
 	var userToUpdate map[string]interface{}
 	userToUpdate, err = database.Adapter.Get(constants.ClassUsers, userIdToUpdate)

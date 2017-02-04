@@ -15,7 +15,7 @@ import (
 
 var FilterConfig map[string]interface{}
 
-var Expander = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
+var Expander = func(requestScope requestscope.RequestScope, extras interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	log.Debug("Interceptor: Expander")
 
@@ -42,7 +42,7 @@ var Expander = func(requestScope requestscope.RequestScope, request, response me
 	return
 }
 
-var Filter = func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
+var Filter = func(requestScope requestscope.RequestScope, extras interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	// TODO add the filter parameter to request and handle it
 

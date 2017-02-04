@@ -22,7 +22,11 @@ var AddFunctionHandler = func(path string, handler functions.FunctionHandler) {
 }
 
 var AddInterceptor = func(res, method string, interceptorType interceptors.InterceptorType, interceptor interceptors.Interceptor) {
-	interceptors.AddInterceptor(res, method, interceptorType, interceptor)
+	interceptors.AddInterceptor(res, method, interceptorType, interceptor, nil)
+}
+
+var AddInterceptorWithExtras = func(res, method string, interceptorType interceptors.InterceptorType, interceptor interceptors.Interceptor, extras interface{}) {
+	interceptors.AddInterceptor(res, method, interceptorType, interceptor, extras)
 }
 
 var Serve = func() {

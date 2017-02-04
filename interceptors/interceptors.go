@@ -9,7 +9,7 @@ import (
 	"github.com/rihtim/core/requestscope"
 )
 
-type Interceptor func(requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error)
+type Interceptor func(requestScope requestscope.RequestScope, extras interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error)
 
 type InterceptorType int
 
@@ -30,13 +30,14 @@ var typeNames = [...]string{
 type interceptorIndex struct {
 	res             string
 	method          string
+	extras 			interface{}
 	interceptorType InterceptorType
 	interceptor     Interceptor
 }
 
 var interceptorsMap []interceptorIndex
 
-var AddInterceptor = func(res, method string, interceptorType InterceptorType, interceptor Interceptor) {
+var AddInterceptor = func(res, method string, interceptorType InterceptorType, interceptor Interceptor, extras interface{}) {
 
 	res = utils.ConvertRichUrlToRegex(res, true)
 
@@ -44,16 +45,18 @@ var AddInterceptor = func(res, method string, interceptorType InterceptorType, i
 		interceptorsMap = make([]interceptorIndex, 0)
 	}
 
-	index := interceptorIndex{res, method, interceptorType, interceptor}
+	index := interceptorIndex{res, method, extras, interceptorType, interceptor}
 	interceptorsMap = append(interceptorsMap, index)
 
 	identifier := strings.Join([]string{typeNames[int(interceptorType)], method, res}, ", ")
-	log.Info("Interceptor added for preferences: " + identifier)
+	log.Debug("Interceptor added for preferences: " + identifier)
 }
 
-var GetInterceptor = func(res, method string, interceptorType InterceptorType) (interceptors []Interceptor) {
+var GetInterceptor = func(res, method string, interceptorType InterceptorType) (interceptors []Interceptor, extras []interface{}) {
 
 	interceptors = make([]Interceptor, 0)
+	extras = make([]interface{}, 0)
+
 	for _, index := range interceptorsMap {
 		// skip if interceptor type doesn't match
 		if interceptorType != index.interceptorType {
@@ -68,15 +71,16 @@ var GetInterceptor = func(res, method string, interceptorType InterceptorType) (
 			continue
 		}
 		interceptors = append(interceptors, index.interceptor)
+		extras = append(extras, index.extras)
 	}
 
-	return interceptors
+	return
 }
 
 var ExecuteInterceptors = func(res, method string, interceptorType InterceptorType, requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	log.Debug("ExecuteInterceptors: " + method + " " + typeNames[int(interceptorType)] + " " + res)
-	interceptors := GetInterceptor(res, method, interceptorType)
+	interceptors, extras := GetInterceptor(res, method, interceptorType)
 
 	var inputRequest, outputRequest, inputResponse, outputResponse messages.Message
 	var inputRequestScope, outputRequestScope requestscope.RequestScope
@@ -84,8 +88,9 @@ var ExecuteInterceptors = func(res, method string, interceptorType InterceptorTy
 	inputRequest = request
 	inputResponse = response
 	inputRequestScope = requestScope
-	for _, interceptor := range interceptors {
-		outputRequest, outputResponse, outputRequestScope, err = interceptor(inputRequestScope, inputRequest, inputResponse)
+	for i, interceptor := range interceptors {
+
+		outputRequest, outputResponse, outputRequestScope, err = interceptor(inputRequestScope, extras[i], inputRequest, inputResponse)
 		if err != nil {
 			return
 		}
