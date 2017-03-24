@@ -154,6 +154,7 @@ func (a *JWTAdapter) extractUserFromRequest(request messages.Message) (user map[
 	return
 }
 
+
 func getPermissionsOnObject(collection string, id string, roles []string) (permissions map[string]bool, err *utils.Error) {
 
 	var model map[string]interface{}

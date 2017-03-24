@@ -259,7 +259,7 @@ var GrantRole = func(request messages.Message, requestScope requestscope.Request
 		return
 	}
 
-	/*userAsMap := user.(map[string]interface{})
+	userAsMap := user.(map[string]interface{})
 	requestOwnersRoles, requestOwnersHasRoles := userAsMap[constants.RolesIdentifier]
 	if !requestOwnersHasRoles {
 		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have any role info."}
@@ -279,7 +279,7 @@ var GrantRole = func(request messages.Message, requestScope requestscope.Request
 	if matchingRoleCount != len(rolesToGrant.([]interface{})) {
 		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to grant the given roles."}
 		return
-	}*/
+	}
 
 	var userToUpdate map[string]interface{}
 	userToUpdate, err = database.Adapter.Get(constants.ClassUsers, userIdToUpdate)
