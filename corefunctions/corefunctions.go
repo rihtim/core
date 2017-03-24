@@ -239,7 +239,7 @@ var GrantRole = func(request messages.Message, requestScope requestscope.Request
 	if !requestScope.Contains("user") {
 		err = &utils.Error{http.StatusUnauthorized, "Grant role request requires access token."}
 	}
-	//user := requestScope.Get("user")
+	user := requestScope.Get("user")
 
 	resParts := strings.Split(request.Res, "/")
 	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
