@@ -13,6 +13,9 @@ import (
 	"github.com/rihtim/core/requestscope"
 	"github.com/rihtim/core/interceptors"
 	"github.com/rihtim/core/requesthandler"
+	//"github.com/Sirupsen/logrus"
+	//"runtime/debug"
+	"github.com/getsentry/raven-go"
 )
 
 var Configuration map[string]interface{}
@@ -29,7 +32,15 @@ var AddInterceptorWithExtras = func(res, method string, interceptorType intercep
 	interceptors.AddInterceptor(res, method, interceptorType, interceptor, extras)
 }
 
+var wrapInRaven = false
+
 var Serve = func() {
+
+	if ravenConfig, containsRavenConfig := Configuration["raven"].(map[string]interface{}); containsRavenConfig {
+		raven.SetDSN(ravenConfig["url"].(string))
+		wrapInRaven = true
+		log.Info("Initialising raven.")
+	}
 
 	port := Configuration["port"].(string)
 	log.Info("Starting server on port " + port + ".")
@@ -52,11 +63,27 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	requestScope := requestscope.Init()
 
-	response, _, err := HandleRequest(request, requestScope)
-	buildResponse(w, response, err)
+	if (wrapInRaven) {
+		raven.CapturePanic(func() {
+			response, _, err := HandleRequest(request, requestScope)
+			buildResponse(w, response, err)
+		}, nil)
+	} else {
+		response, _, err := HandleRequest(request, requestScope)
+		buildResponse(w, response, err)
+	}
 }
 
 var HandleRequest = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, updatedRequestScope requestscope.RequestScope, err *utils.Error) {
+
+	/*defer func() {
+		if err := recover(); err != nil {
+			log.WithFields(logrus.Fields{
+				"error ": err,
+				"stackTrace": string(debug.Stack()),
+			}).Error("Crash recovered!")
+		}
+	}()*/
 
 	var editedRequest, editedResponse messages.Message
 	var editedRequestScope requestscope.RequestScope
