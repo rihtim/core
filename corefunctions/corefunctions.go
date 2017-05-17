@@ -241,6 +241,10 @@ var GrantRole = func(request messages.Message, requestScope requestscope.Request
 	}
 	user := requestScope.Get("user")
 
+	if user == nil {
+		err = &utils.Error{http.StatusUnauthorized, "User info couldn't be retrieved from token."}
+	}
+
 	resParts := strings.Split(request.Res, "/")
 	if len(resParts) != 4 || !strings.EqualFold(resParts[1], constants.ClassUsers) {
 		err = &utils.Error{http.StatusBadRequest, "Grant role can only be used on user objects. Ex: '/users/{id}/grantRole'"}
