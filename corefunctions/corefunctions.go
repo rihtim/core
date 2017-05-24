@@ -20,19 +20,19 @@ import (
 )
 
 var fieldsForRegister = map[string]bool{
-	constants.IdIdentifier: false,
+	constants.IdIdentifier:  false,
 	constants.AclIdentifier: false,
-	"createdAt": false,
-	"updatedAt": false,
-	"email": true,
-	"password": true,
+	"createdAt":             false,
+	"updatedAt":             false,
+	"email":                 true,
+	"password":              true,
 }
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 const (
 	letterIdxBits = 6                    // 6 bits to represent a letter index
-	letterIdxMask = 1 << letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
 // used for password generation
@@ -41,7 +41,7 @@ var src = rand.NewSource(time.Now().UnixNano())
 var GenerateRandomString = func(n int) string {
 	b := make([]byte, n)
 	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n - 1, src.Int63(), letterIdxMax; i >= 0; {
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
 		if remain == 0 {
 			cache, remain = src.Int63(), letterIdxMax
 		}
@@ -85,7 +85,7 @@ var Register = func(request messages.Message, requestScope requestscope.RequestS
 			"get": true,
 		},
 		userRole: map[string]bool{
-			"get": true,
+			"get":    true,
 			"update": true,
 		},
 	}
@@ -270,17 +270,26 @@ var GrantRole = func(request messages.Message, requestScope requestscope.Request
 		return
 	}
 
+	isSystemAdmin := false
+	for _, role := range requestOwnersRoles.([]interface{}) {
+		if strings.EqualFold("sysadmin", role.(string)) {
+			isSystemAdmin = true
+		}
+	}
+
 	matchingRoleCount := 0
-	for _, roleToGrant := range rolesToGrant.([]interface{}) {
-		for _, userRole := range requestOwnersRoles.([]interface{}) {
-			if strings.EqualFold(roleToGrant.(string), userRole.(string)) {
-				matchingRoleCount++
-				continue
+	if !isSystemAdmin {
+		for _, roleToGrant := range rolesToGrant.([]interface{}) {
+			for _, userRole := range requestOwnersRoles.([]interface{}) {
+				if strings.EqualFold(roleToGrant.(string), userRole.(string)) {
+					matchingRoleCount++
+					continue
+				}
 			}
 		}
 	}
 
-	if matchingRoleCount != len(rolesToGrant.([]interface{})) {
+	if !isSystemAdmin && matchingRoleCount != len(rolesToGrant.([]interface{})) {
 		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to grant the given roles."}
 		return
 	}
@@ -342,6 +351,13 @@ var RecallRole = func(request messages.Message, requestScope requestscope.Reques
 		return
 	}
 
+	isSystemAdmin := false
+	for _, role := range requestOwnersRoles.([]interface{}) {
+		if strings.EqualFold("sysadmin", role.(string)) {
+			isSystemAdmin = true
+		}
+	}
+
 	matchingRoleCount := 0
 	for _, roleToRecall := range rolesToRecall.([]interface{}) {
 		for _, userRole := range requestOwnersRoles.([]interface{}) {
@@ -352,7 +368,7 @@ var RecallRole = func(request messages.Message, requestScope requestscope.Reques
 		}
 	}
 
-	if matchingRoleCount != len(rolesToRecall.([]interface{})) {
+	if !isSystemAdmin && matchingRoleCount != len(rolesToRecall.([]interface{})) {
 		err = &utils.Error{http.StatusUnauthorized, "Request owner doesn't have enough permissions to recall the given roles."}
 		return
 	}
