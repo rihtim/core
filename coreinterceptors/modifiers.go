@@ -45,25 +45,29 @@ var Expander = func(requestScope requestscope.RequestScope, extras interface{}, 
 var Filter = func(requestScope requestscope.RequestScope, extras interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	// TODO add the filter parameter to request and handle it
+	log.Debug("Interceptor - Filter")
 
 	editedResponse = response
 	if FilterConfig == nil {
+		log.Debug("Interceptor - Filter: Filter config is nil. Returning.")
 		return
 	}
 
 	class := strings.Split(request.Res, "/")[1]
-	if resultsArray, hasResultsArray := editedResponse.Body[constants.ListIdentifier].([]map[string]interface{}); hasResultsArray {
+	if resultsArray, hasResultsArray := editedResponse.Body[constants.ListIdentifier].([]interface{}); hasResultsArray {
+		log.Debug("Interceptor - Filter: Filtering list.")
 		for i, item := range resultsArray {
-			resultsArray[i] = filterItem(class, item)
+			resultsArray[i] = FilterItem(class, item.(map[string]interface{}))
 		}
 	} else {
-		editedResponse.Body = filterItem(class, editedResponse.Body)
+		log.Debug("Interceptor - Filter: Filtering item.")
+		editedResponse.Body = FilterItem(class, editedResponse.Body)
 	}
 
 	return
 }
 
-var filterItem = func(class string, item map[string]interface{}) (map[string]interface{}) {
+var FilterItem = func(class string, item map[string]interface{}) (map[string]interface{}) {
 
 	classFilterConfig, hasClassFilterConfig := FilterConfig[class]
 	if !hasClassFilterConfig {
