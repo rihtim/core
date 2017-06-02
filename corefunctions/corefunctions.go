@@ -453,6 +453,11 @@ var Append = func(request messages.Message, requestScope requestscope.RequestSco
 				fieldValueToAppend = append(fieldValueToAppend.([]interface{}), itemToAdd)
 			}
 		}
+		if itemType := reflect.TypeOf(itemToAdd); itemType.Kind() == reflect.Float64 {
+			if !arrayContainsFloat64(fieldValueToAppend.([]interface{}), itemToAdd) {
+				fieldValueToAppend = append(fieldValueToAppend.([]interface{}), itemToAdd)
+			}
+		}
 	}
 
 	body := make(map[string]interface{})
@@ -516,6 +521,11 @@ var Remove = func(request messages.Message, requestScope requestscope.RequestSco
 				newArray = append(newArray, existingItem)
 			}
 		}
+		if itemType := reflect.TypeOf(existingItem); itemType.Kind() == reflect.Float64 {
+			if !arrayContainsFloat64(itemsToRemove.([]interface{}), existingItem) {
+				newArray = append(newArray, existingItem)
+			}
+		}
 	}
 
 	body := make(map[string]interface{})
@@ -574,6 +584,15 @@ var getAccountData = func(userInfo map[string]interface{}) (accountData map[stri
 	}
 	accountData = resultsAsMap[0]
 
+	return
+}
+
+var arrayContainsFloat64 = func(array []interface{}, item interface{}) (contains bool) {
+	set := make(map[float64]bool)
+	for _, v := range array {
+		set[v.(float64)] = true
+	}
+	_, contains = set[item.(float64)]
 	return
 }
 
