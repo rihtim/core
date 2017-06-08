@@ -435,7 +435,7 @@ var Append = func(request messages.Message, requestScope requestscope.RequestSco
 
 	fieldValueToAppend, hasFieldToAppend := itemToUpdate[fieldToAppend]
 
-	if !hasFieldToAppend {
+	if !hasFieldToAppend || fieldValueToAppend == nil {
 		fieldValueToAppend = make([]interface{}, 0)
 	} else if fieldObjectType := reflect.TypeOf(fieldValueToAppend); fieldObjectType.Kind() != reflect.Slice {
 		err = &utils.Error{http.StatusBadRequest, "The field '" + fieldToAppend + "' is not an array."}
