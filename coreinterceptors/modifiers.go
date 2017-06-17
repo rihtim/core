@@ -55,9 +55,14 @@ var Filter = func(requestScope requestscope.RequestScope, extras interface{}, re
 
 	class := strings.Split(request.Res, "/")[1]
 	if resultsArray, hasResultsArray := editedResponse.Body[constants.ListIdentifier].([]interface{}); hasResultsArray {
-		log.Debug("Interceptor - Filter: Filtering list.")
+		log.Debug("Interceptor - Filter: Filtering interface list.")
 		for i, item := range resultsArray {
 			resultsArray[i] = FilterItem(class, item.(map[string]interface{}))
+		}
+	} else if resultsArray, hasResultsArray := editedResponse.Body[constants.ListIdentifier].([]map[string]interface {}); hasResultsArray {
+		log.Debug("Interceptor - Filter: Filtering map list.")
+		for i, item := range resultsArray {
+			resultsArray[i] = FilterItem(class, item)
 		}
 	} else {
 		log.Debug("Interceptor - Filter: Filtering item.")
