@@ -273,8 +273,8 @@ func parseRequest(r *http.Request) (request messages.Message, err *utils.Error) 
 		readErr := json.NewDecoder(r.Body).Decode(&request.Body)
 		if readErr != nil && readErr != io.EOF {
 			log.Error(r.Body)
-			err = &utils.Error{http.StatusBadRequest, "Request body is not a valid json."}
-			return
+			//err = &utils.Error{http.StatusBadRequest, "Request body is not a valid json."}
+			//return
 		}
 	}
 
