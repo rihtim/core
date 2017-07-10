@@ -272,7 +272,6 @@ func parseRequest(r *http.Request) (request messages.Message, err *utils.Error) 
 	} else {
 		readErr := json.NewDecoder(r.Body).Decode(&request.Body)
 		if readErr != nil && readErr != io.EOF {
-			log.Error(r)
 			err = &utils.Error{Code: http.StatusBadRequest, Message: "Parsing request body failed. Reason: " + readErr.Error()}
 			return
 		}
