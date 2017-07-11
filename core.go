@@ -270,6 +270,11 @@ func parseRequest(r *http.Request) (request messages.Message, err *utils.Error) 
 		}
 		request.ReqBodyRaw = r.Body
 	} else {
+
+		if excluded, contains := Configuration["bodyParserExcludedResources"].(map[string]bool); contains && excluded[res] {
+			request.ReqBodyRaw = r.Body
+			return
+		}
 		readErr := json.NewDecoder(r.Body).Decode(&request.Body)
 		if readErr != nil && readErr != io.EOF {
 			err = &utils.Error{Code: http.StatusBadRequest, Message: "Parsing request body failed. Reason: " + readErr.Error()}
