@@ -18,7 +18,6 @@ import (
 	"github.com/getsentry/raven-go"
 )
 
-// var Configuration map[string]interface{}
 var Port = "1707"
 var BodyParserExcludedResources map[string]bool
 

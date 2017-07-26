@@ -37,7 +37,6 @@ func (ma *MongoAdapter) Init() (err *utils.Error) {
 		Username: ma.Username,
 		Password: ma.Password,
 	}
-
 	return
 }
 

@@ -11,4 +11,4 @@ type AuthAdapter interface {
 	IsGranted(user interface{}, request messages.Message) (isGranted bool, err *utils.Error)
 }
 
-var Adapter AuthAdapter
+// var Adapter AuthAdapter

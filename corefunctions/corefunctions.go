@@ -7,15 +7,12 @@ import (
 	"net/http"
 	"math/rand"
 	"encoding/json"
-	"gopkg.in/mgo.v2/bson"
 	"golang.org/x/crypto/bcrypt"
 	"github.com/go-gomail/gomail"
-	"github.com/rihtim/core/auth"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/database"
 	"github.com/rihtim/core/constants"
-	"github.com/rihtim/core/validator"
 	"github.com/rihtim/core/requestscope"
 )
 
@@ -56,6 +53,7 @@ var GenerateRandomString = func(n int) string {
 	return string(b)
 }
 
+/*
 var Register = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	err = validator.ValidateInputFields(fieldsForRegister, request.Body)
@@ -115,7 +113,9 @@ var Register = func(request messages.Message, requestScope requestscope.RequestS
 	response.Body["accessToken"] = accessToken
 	return
 }
+*/
 
+/*
 var Login = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	_, hasEmail := request.Body["email"]
@@ -162,7 +162,7 @@ var Login = func(request messages.Message, requestScope requestscope.RequestScop
 		response.Status = http.StatusUnauthorized
 	}
 	return
-}
+} */
 
 var ChangePassword = func(request messages.Message, requestScope requestscope.RequestScope) (response messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
