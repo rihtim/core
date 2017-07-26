@@ -14,52 +14,28 @@ import (
 )
 
 type MongoAdapter struct {
-	database string
+	Addresses []string
+	Database string
+	AuthDatabase string
+	Username string
+	Password string
+
 	session  *mgo.Session
-	dialInfo *mgo.DialInfo
+	dialInfo mgo.DialInfo
 }
 
-func (ma *MongoAdapter) Init(config map[string]interface{}) (err *utils.Error) {
+func (ma *MongoAdapter) Init() (err *utils.Error) {
 
-	if config == nil {
-		err = &utils.Error{http.StatusInternalServerError, "Database configuration is nil."};
+	if ma.Addresses == nil {
+		err = &utils.Error{http.StatusInternalServerError, "Database 'addresses' must be specified."};
 		return
 	}
 
-	addresses, hasAddress := config["addresses"]
-	if !hasAddress {
-		err = &utils.Error{http.StatusInternalServerError, "Database 'addresses' must be specified in configuration file."};
-		return
-	}
-
-	addressesAsStrings := make([]string, len(addresses.([]interface{})))
-	for i, v := range addresses.([]interface{}) {addressesAsStrings[i] = v.(string)}
-
-	database, hasDatabase := config["database"]
-	if !hasDatabase {
-		err = &utils.Error{http.StatusInternalServerError, "Database name must be specified in 'database' in configuration file."};
-		return
-	}
-	ma.database = database.(string)
-
-	ma.dialInfo = &mgo.DialInfo{
-		Addrs:    addressesAsStrings,
-		Database: database.(string),
-	}
-
-	authDatabase, hasAuthDatabase := config["authDatabase"]
-	if hasAuthDatabase {
-		ma.dialInfo.Database = authDatabase.(string)
-	}
-
-	username, hasUsername := config["username"]
-	if hasUsername {
-		ma.dialInfo.Username = username.(string)
-	}
-
-	password, hasPassword := config["password"]
-	if hasPassword {
-		ma.dialInfo.Password = password.(string)
+	ma.dialInfo = mgo.DialInfo{
+		Addrs:    ma.Addresses,
+		Database: ma.AuthDatabase,
+		Username: ma.Username,
+		Password: ma.Password,
 	}
 
 	return
@@ -68,7 +44,7 @@ func (ma *MongoAdapter) Init(config map[string]interface{}) (err *utils.Error) {
 func (ma *MongoAdapter) Connect() (err *utils.Error) {
 
 	var dialErr error
-	ma.session, dialErr = mgo.DialWithInfo(ma.dialInfo)
+	ma.session, dialErr = mgo.DialWithInfo(&ma.dialInfo)
 	if dialErr != nil {
 		err = &utils.Error{http.StatusInternalServerError, "Database connection failed. Reason: " + dialErr.Error()};
 		return
@@ -81,7 +57,7 @@ func (ma MongoAdapter) Create(collection string, data map[string]interface{}) (r
 
 	sessionCopy := ma.session.Copy()
 	defer sessionCopy.Close()
-	connection := sessionCopy.DB(ma.database).C(collection)
+	connection := sessionCopy.DB(ma.Database).C(collection)
 
 	createdAt := int32(time.Now().Unix())
 	if _, hasId := data[constants.IdIdentifier]; !hasId {
@@ -109,7 +85,7 @@ func (ma MongoAdapter) Get(collection string, id string) (response map[string]in
 
 	sessionCopy := ma.session.Copy()
 	defer sessionCopy.Close()
-	connection := sessionCopy.DB(ma.database).C(collection)
+	connection := sessionCopy.DB(ma.Database).C(collection)
 
 	response = make(map[string]interface{})
 
@@ -126,7 +102,7 @@ func (ma MongoAdapter) Query(collection string, parameters map[string][]string) 
 
 	sessionCopy := ma.session.Copy()
 	defer sessionCopy.Close()
-	connection := sessionCopy.DB(ma.database).C(collection)
+	connection := sessionCopy.DB(ma.Database).C(collection)
 
 	response = make(map[string]interface{})
 
@@ -183,7 +159,7 @@ func (ma MongoAdapter) Update(collection string, id string, data map[string]inte
 
 	sessionCopy := ma.session.Copy()
 	defer sessionCopy.Close()
-	connection := sessionCopy.DB(ma.database).C(collection)
+	connection := sessionCopy.DB(ma.Database).C(collection)
 
 	if data == nil {
 		err = &utils.Error{http.StatusBadRequest, "Request body cannot be empty for update requests."}
@@ -220,7 +196,7 @@ func (ma MongoAdapter) Delete(collection string, id string) (response map[string
 
 	sessionCopy := ma.session.Copy()
 	defer sessionCopy.Close()
-	connection := sessionCopy.DB(ma.database).C(collection)
+	connection := sessionCopy.DB(ma.Database).C(collection)
 
 	removeErr := connection.RemoveId(id)
 	if removeErr != nil {
@@ -238,7 +214,7 @@ func (ma MongoAdapter) CreateFile(data io.ReadCloser) (response map[string]inter
 	now := time.Now()
 	fileName := objectId.Hex()
 
-	gridFile, mongoErr := sessionCopy.DB(ma.database).GridFS("fs").Create(fileName)
+	gridFile, mongoErr := sessionCopy.DB(ma.Database).GridFS("fs").Create(fileName)
 	if mongoErr != nil {
 		err = &utils.Error{http.StatusInternalServerError, "Creating file failed. Reason: " + mongoErr.Error()}
 		return
@@ -274,7 +250,7 @@ func (ma MongoAdapter) GetFile(id string) (response []byte, err *utils.Error) {
 	defer sessionCopy.Close()
 
 
-	file, mongoErr := sessionCopy.DB(ma.database).GridFS("fs").OpenId(id)
+	file, mongoErr := sessionCopy.DB(ma.Database).GridFS("fs").OpenId(id)
 	if mongoErr != nil {
 		if mongoErr == mgo.ErrNotFound {
 			err = &utils.Error{http.StatusNotFound, "File not found. Reason: " + mongoErr.Error()};

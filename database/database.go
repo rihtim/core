@@ -6,7 +6,7 @@ import (
 )
 
 type DatabaseAdapter interface {
-	Init(config map[string]interface{}) (err *utils.Error)
+	Init() (err *utils.Error)
 	Connect() (err *utils.Error)
 	Create(collection string, data map[string]interface{}) (response map[string]interface{}, err *utils.Error)
 	Get(collection string, id string) (response map[string]interface{}, err *utils.Error)

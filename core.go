@@ -18,7 +18,9 @@ import (
 	"github.com/getsentry/raven-go"
 )
 
-var Configuration map[string]interface{}
+// var Configuration map[string]interface{}
+var Port = "1707"
+var BodyParserExcludedResources map[string]bool
 
 var AddFunctionHandler = func(path string, handler functions.FunctionHandler) {
 	functions.AddFunctionHandler(path, handler)
@@ -36,19 +38,18 @@ var wrapInRaven = false
 
 var Serve = func() {
 
-	if ravenConfig, containsRavenConfig := Configuration["raven"].(map[string]interface{}); containsRavenConfig {
+	/* if ravenConfig, containsRavenConfig := Configuration["raven"].(map[string]interface{}); containsRavenConfig {
 		raven.SetDSN(ravenConfig["url"].(string))
 		wrapInRaven = true
 		log.Info("Initialising raven.")
-	}
+	} */
 
-	port := Configuration["port"].(string)
-	log.Info("Starting server on port " + port + ".")
+	log.Info("Starting server on port " + Port + ".")
 
 	http.HandleFunc("/", handler)
-	serveErr := http.ListenAndServe(":" + port, nil)
+	serveErr := http.ListenAndServe(":"+Port, nil)
 	if serveErr != nil {
-		log.Info("Serving on port " + port + " failed. Be sure that the port is available.")
+		log.Info("Serving on port " + Port + " failed. Be sure that the port is available.")
 	}
 }
 
@@ -166,7 +167,7 @@ func handleError(request, response messages.Message, requestScope requestscope.R
 }
 
 func printError(w http.ResponseWriter, err *utils.Error) {
-	bytes, cbErr := json.Marshal(map[string]string{"message":err.Message})
+	bytes, cbErr := json.Marshal(map[string]string{"message": err.Message})
 	if cbErr != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		log.Error("Generating error message failed.")
@@ -248,7 +249,6 @@ func printError(w http.ResponseWriter, err *utils.Error) {
 	//	close(responseChannel)
 }*/
 
-
 func parseRequest(r *http.Request) (request messages.Message, err *utils.Error) {
 
 	res := strings.TrimRight(r.URL.Path, "/")
@@ -257,9 +257,9 @@ func parseRequest(r *http.Request) (request messages.Message, err *utils.Error) 
 		return
 	}
 	request = messages.Message{
-		Res: res,
-		Command: strings.ToLower(r.Method),
-		Headers: r.Header,
+		Res:        res,
+		Command:    strings.ToLower(r.Method),
+		Headers:    r.Header,
 		Parameters: r.URL.Query(),
 	}
 
@@ -271,7 +271,7 @@ func parseRequest(r *http.Request) (request messages.Message, err *utils.Error) 
 		request.ReqBodyRaw = r.Body
 	} else {
 
-		if excluded, contains := Configuration["bodyParserExcludedResources"].(map[string]bool); contains && excluded[res] {
+		if BodyParserExcludedResources != nil && BodyParserExcludedResources[res] {
 			request.ReqBodyRaw = r.Body
 			return
 		}
@@ -297,7 +297,7 @@ func buildResponse(w http.ResponseWriter, response messages.Message, err *utils.
 			response.Status = err.Code
 		}
 		if response.Body == nil {
-			response.Body = map[string]interface{}{"code":err.Code, "message":err.Message}
+			response.Body = map[string]interface{}{"code": err.Code, "message": err.Message}
 		}
 	}
 
