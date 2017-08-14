@@ -26,12 +26,8 @@ var Expander = func(requestScope requestscope.RequestScope, extras interface{}, 
 		if resultsArray, hasResultsArray := editedResponse.Body[constants.ListIdentifier].([]map[string]interface{}); hasResultsArray {
 			for i, item := range resultsArray {
 
-				var expandedItem map[string]interface{}
-				var expandErr *utils.Error
-				expandedItem, expandErr = expandItem(item, request, expandConfig, requestScope)
-				if expandErr != nil {
-					resultsArray[i] = map[string]interface{}{"code": expandErr.Code, "message": expandErr.Message}
-				} else {
+				expandedItem, expandErr := expandItem(item, request, expandConfig, requestScope)
+				if expandErr == nil {
 					resultsArray[i] = expandedItem
 				}
 			}
