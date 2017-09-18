@@ -13,8 +13,6 @@ import (
 	"github.com/rihtim/core/log"
 )
 
-var FilterConfig map[string]interface{}
-
 var Expander = func(requestScope requestscope.RequestScope, extras interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
 
 	log.Debug("Interceptor: Expander")
@@ -44,33 +42,34 @@ var Filter = func(requestScope requestscope.RequestScope, extras interface{}, re
 	log.Debug("Interceptor - Filter")
 
 	editedResponse = response
-	if FilterConfig == nil {
+	if extras == nil {
 		log.Debug("Interceptor - Filter: Filter config is nil. Returning.")
 		return
 	}
+	filterConfig := extras.(map[string]interface{})
 
 	class := strings.Split(request.Res, "/")[1]
 	if resultsArray, hasResultsArray := editedResponse.Body[constants.ListIdentifier].([]interface{}); hasResultsArray {
 		log.Debug("Interceptor - Filter: Filtering interface list.")
 		for i, item := range resultsArray {
-			resultsArray[i] = FilterItem(class, item.(map[string]interface{}))
+			resultsArray[i] = FilterItem(class, item.(map[string]interface{}), filterConfig)
 		}
 	} else if resultsArray, hasResultsArray := editedResponse.Body[constants.ListIdentifier].([]map[string]interface {}); hasResultsArray {
 		log.Debug("Interceptor - Filter: Filtering map list.")
 		for i, item := range resultsArray {
-			resultsArray[i] = FilterItem(class, item)
+			resultsArray[i] = FilterItem(class, item, filterConfig)
 		}
 	} else {
 		log.Debug("Interceptor - Filter: Filtering item.")
-		editedResponse.Body = FilterItem(class, editedResponse.Body)
+		editedResponse.Body = FilterItem(class, editedResponse.Body, filterConfig)
 	}
 
 	return
 }
 
-var FilterItem = func(class string, item map[string]interface{}) (map[string]interface{}) {
+var FilterItem = func(class string, item map[string]interface{}, filterConfig map[string]interface{}) (map[string]interface{}) {
 
-	classFilterConfig, hasClassFilterConfig := FilterConfig[class]
+	classFilterConfig, hasClassFilterConfig := filterConfig[class]
 	if !hasClassFilterConfig {
 		return item
 	}
