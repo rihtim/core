@@ -1,11 +1,6 @@
 package constants
 
 const (
-	ActorTypeRoot = "root"
-	ActorTypeCollection = "collection"
-	ActorTypeModel = "model"
-	ActorTypeAttribute = "attribute"
-	ActorTypeFunctions = "functions"
 	ClassUsers = "users"
 	ClassFiles = "files"
 	ResourceTypeUsers = "/users"
