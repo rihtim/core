@@ -7,7 +7,7 @@ import (
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/constants"
 	"github.com/rihtim/core/database"
-	"github.com/rihtim/core/validator"
+	"bitbucket.org/mentornity/api/validator"
 	"github.com/rihtim/core/requestscope"
 )
 
