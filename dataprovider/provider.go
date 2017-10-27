@@ -1,12 +1,11 @@
-package database
+package dataprovider
 
 import (
-	"github.com/rihtim/core/utils"
 	"io"
+	"github.com/rihtim/core/utils"
 )
 
-type DatabaseAdapter interface {
-	Init() (err *utils.Error)
+type Provider interface {
 	Connect() (err *utils.Error)
 	Create(collection string, data map[string]interface{}) (response map[string]interface{}, err *utils.Error)
 	Get(collection string, id string) (response map[string]interface{}, err *utils.Error)
@@ -16,5 +15,3 @@ type DatabaseAdapter interface {
 	CreateFile(data io.ReadCloser) (response map[string]interface{}, err *utils.Error)
 	GetFile(id string) (response []byte, err *utils.Error)
 }
-
-var Adapter DatabaseAdapter

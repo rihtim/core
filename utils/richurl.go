@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 )
+
 /**
  * Converts rich url to a grouped regular expression.
  * 
@@ -11,7 +12,7 @@ import (
  * Ex typed:    "/users/{id:[0-9]+}/books" => "^\/users\/(?P<id>[0-9]+)\/books$"
  * Ex multiple: "/users/{userId}/books/{bookId}" => "^\/users\/(?P<userId>.+)\/books\/(?P<bookId>.+)$"
  */
-func ConvertRichUrlToRegex(path string, isComplete bool) (url string) {
+func ConvertRichUrlToRegex(path string, isComplete bool) string {
 
 	parts := strings.Split(path, "/")
 	for i, part := range parts {
@@ -30,11 +31,11 @@ func ConvertRichUrlToRegex(path string, isComplete bool) (url string) {
 		}
 	}
 
-	url = "^" + strings.Join(parts, "\\/")
+	url := "^" + strings.Join(parts, "\\/")
 	if isComplete {
 		url += "$"
 	}
-	return 
+	return url
 }
 
 /**
@@ -42,17 +43,17 @@ func ConvertRichUrlToRegex(path string, isComplete bool) (url string) {
  * group values defined in the expression.
  *
  */
-func GetParamsFromRichUrl(regEx, url string) (paramsMap map[string]string, matches bool ) {
+func GetParamsFromRichUrl(regEx, url string) (params map[string]string, matches bool) {
 
 	var compRegEx = regexp.MustCompile(regEx)
 	match := compRegEx.FindStringSubmatch(url)
 
 	matches = len(match) > 0
 
-	paramsMap = make(map[string]string)
+	params = make(map[string]string)
 	for i, name := range compRegEx.SubexpNames() {
 		if i > 0 && i <= len(match) {
-			paramsMap[name] = match[i]
+			params[name] = match[i]
 		}
 	}
 	return

@@ -1,15 +1,13 @@
 package interceptors
 
 import (
-	"regexp"
-	"strings"
-	"github.com/rihtim/core/log"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/requestscope"
+	"github.com/rihtim/core/dataprovider"
 )
 
-type Interceptor func(requestScope requestscope.RequestScope, extras interface{}, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error)
+type Interceptor func(rs requestscope.RequestScope, extras interface{}, req, res messages.Message, db dataprovider.Provider) (editedReq, editedRes messages.Message, editedRs requestscope.RequestScope, err *utils.Error)
 
 type InterceptorType int
 
@@ -20,6 +18,8 @@ const (
 	FINAL
 )
 
+const AnyPath = ".+"
+
 var typeNames = [...]string{
 	"BEFORE_EXEC",
 	"AFTER_EXEC",
@@ -27,93 +27,8 @@ var typeNames = [...]string{
 	"FINAL",
 }
 
-type interceptorIndex struct {
-	res             string
-	method          string
-	extras 			interface{}
-	interceptorType InterceptorType
-	interceptor     Interceptor
-}
-
-var interceptorsMap []interceptorIndex
-
-var AddInterceptor = func(res, method string, interceptorType InterceptorType, interceptor Interceptor, extras interface{}) {
-
-	res = utils.ConvertRichUrlToRegex(res, true)
-
-	if interceptorsMap == nil {
-		interceptorsMap = make([]interceptorIndex, 0)
-	}
-
-	index := interceptorIndex{res, method, extras, interceptorType, interceptor}
-	interceptorsMap = append(interceptorsMap, index)
-
-	identifier := strings.Join([]string{typeNames[int(interceptorType)], method, res}, ", ")
-	log.Debug("Interceptor added for preferences: " + identifier)
-}
-
-var GetInterceptor = func(res, method string, interceptorType InterceptorType) (interceptors []Interceptor, extras []interface{}) {
-
-	interceptors = make([]Interceptor, 0)
-	extras = make([]interface{}, 0)
-
-	for _, index := range interceptorsMap {
-		// skip if interceptor type doesn't match
-		if interceptorType != index.interceptorType {
-			continue
-		}
-		// skip if resource doesn't match -or- resource is not '*' -or- resource doesn't match as regex
-		validator, rexpErr := regexp.Compile(index.res)
-		if !(strings.EqualFold(res, index.res) || strings.EqualFold("*", index.res) || (rexpErr == nil && validator.MatchString(res))) {
-			continue
-		}
-		if !(strings.EqualFold(method, index.method) || strings.EqualFold("*", index.method)) {
-			continue
-		}
-		interceptors = append(interceptors, index.interceptor)
-		extras = append(extras, index.extras)
-	}
-
-	return
-}
-
-var ExecuteInterceptors = func(res, method string, interceptorType InterceptorType, requestScope requestscope.RequestScope, request, response messages.Message) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error) {
-
-	log.Debug("ExecuteInterceptors: " + method + " " + typeNames[int(interceptorType)] + " " + res)
-	interceptors, extras := GetInterceptor(res, method, interceptorType)
-
-	var inputRequest, outputRequest, inputResponse, outputResponse messages.Message
-	var inputRequestScope, outputRequestScope requestscope.RequestScope
-
-	inputRequest = request
-	inputResponse = response
-	inputRequestScope = requestScope
-	for i, interceptor := range interceptors {
-
-		outputRequest, outputResponse, outputRequestScope, err = interceptor(inputRequestScope, extras[i], inputRequest, inputResponse)
-		if err != nil {
-			return
-		}
-
-		// output of the previous interceptor becomes the input of the next interceptor
-		if !outputRequest.IsEmpty() {
-			inputRequest = outputRequest
-		}
-		if !outputResponse.IsEmpty() {
-			inputResponse = outputResponse
-
-			// BEFORE_EXEC interceptors' editedResponse cuts the request. so skip the rest and return the response
-			if interceptorType == BEFORE_EXEC {
-				editedResponse = inputResponse
-				return
-			}
-		}
-		if !outputRequestScope.IsEmpty() {
-			inputRequestScope = outputRequestScope
-		}
-	}
-	editedRequest = inputRequest
-	editedResponse = inputResponse
-	editedRequestScope = inputRequestScope
-	return
+type InterceptorController interface {
+	Add(path, method string, iType InterceptorType, interceptor Interceptor, extras interface{})
+	Get(path, method string, iType InterceptorType) (interceptors []Interceptor, extras []interface{})
+	Execute(path, method string, iType InterceptorType, rs requestscope.RequestScope, req, res messages.Message) (editedReq, editedRes messages.Message, editedRs requestscope.RequestScope, err *utils.Error)
 }
