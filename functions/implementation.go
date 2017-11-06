@@ -37,7 +37,7 @@ func (cf *CoreFunctionController) Add(path string, handler FunctionHandler) {
 	log.Debug("Function added for path: " + path)
 }
 
-func (cf *CoreFunctionController) Get(path string) (handler FunctionHandler) {
+func (cf *CoreFunctionController) Get(path string) (handler FunctionHandler, regex string) {
 
 	for handlerPath, h := range cf.functionHandlers {
 		validator, regExpErr := regexp.Compile(handlerPath)
@@ -45,6 +45,7 @@ func (cf *CoreFunctionController) Get(path string) (handler FunctionHandler) {
 			continue
 		}
 		handler = h
+		regex = handlerPath
 		return
 	}
 	return
@@ -52,17 +53,18 @@ func (cf *CoreFunctionController) Get(path string) (handler FunctionHandler) {
 
 func (cf *CoreFunctionController) Execute(req messages.Message, rs requestscope.RequestScope, db dataprovider.Provider) (res messages.Message, editedRs requestscope.RequestScope, err *utils.Error) {
 
+	functionHandler, regex := cf.Get(req.Res)
+
 	// retrieve the url params and add into the request scope
 	// ex: id from the url /users/{id}
-	regex := utils.ConvertRichUrlToRegex(req.Res, true)
 	params, matches := utils.GetParamsFromRichUrl(regex, req.Res)
+
 	if matches {
 		for key, value := range params {
 			rs.Set(key, value)
 		}
 	}
 
-	functionHandler := cf.Get(req.Res)
 	res, rs, err = functionHandler(req, rs, db)
 	return
 }

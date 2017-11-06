@@ -12,6 +12,6 @@ type FunctionHandler func(req messages.Message, rs requestscope.RequestScope, db
 type FunctionController interface {
 	Contains(path string) bool
 	Add(path string, handler FunctionHandler)
-	Get(path string) (handler FunctionHandler)
+	Get(path string) (handler FunctionHandler, regex string)
 	Execute(req messages.Message, rs requestscope.RequestScope, db dataprovider.Provider) (res messages.Message, editedRs requestscope.RequestScope, err *utils.Error)
 }
