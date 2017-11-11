@@ -18,6 +18,14 @@ type Message struct {
 	Status        int                    `json:"status,omitempty"` // used only in responses
 }
 
+func (m Message) GetParameter(key string) (value string, contains bool) {
+	values, contains := m.Parameters[key]
+	if contains {
+		value = values[0]
+	}
+	return
+}
+
 type RequestWrapper struct {
 	Message  Message
 	Listener chan Message
