@@ -7,7 +7,7 @@ import (
 	"github.com/rihtim/core/dataprovider"
 )
 
-type Interceptor func(rs requestscope.RequestScope, extras interface{}, req, res messages.Message, db dataprovider.Provider) (editedReq, editedRes messages.Message, editedRs requestscope.RequestScope, err *utils.Error)
+type Interceptor func(rs requestscope.RequestScope, extras interface{}, req, resp messages.Message, dp dataprovider.Provider) (editedReq, editedResp messages.Message, editedRs requestscope.RequestScope, err *utils.Error)
 
 type InterceptorType int
 
