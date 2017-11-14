@@ -8,6 +8,8 @@ import (
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/requestscope"
 	"github.com/rihtim/core/dataprovider"
+	"runtime"
+	"reflect"
 )
 
 type interceptorIndex struct {
@@ -81,10 +83,13 @@ func (ci *CoreInterceptorController) Execute(res, method string, interceptorType
 		path := paths[i]
 		extra := extras[i]
 
+		interceptorName := runtime.FuncForPC(reflect.ValueOf(interceptor).Pointer()).Name()
+		log.Debug("Executing Interceptor: " + interceptorName)
+
 		// retrieve the url params and add into the request scope
 		// ex: id from the url /users/{id}
-		regex := utils.ConvertRichUrlToRegex(path, true)
-		params, matches := utils.GetParamsFromRichUrl(regex, res)
+		// regex := utils.ConvertRichUrlToRegex(path, true)
+		params, matches := utils.GetParamsFromRichUrl(path, res)
 		if matches {
 			for key, value := range params {
 				requestScope.Set(key, value)
