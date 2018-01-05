@@ -11,9 +11,17 @@ type RequestScope struct {
 
 func Init() RequestScope {
 	requestScope := RequestScope{
-		data:make(map[string]interface{}),
+		data: make(map[string]interface{}),
 	}
 	return requestScope
+}
+
+func (rs RequestScope) Copy() RequestScope {
+	clone := RequestScope{data: map[string]interface{}{}}
+	for k, v := range rs.data {
+		clone.data[k] = v
+	}
+	return clone
 }
 
 func (rs RequestScope) Set(key string, value interface{}) {
@@ -30,7 +38,6 @@ func (rs RequestScope) Contains(key string) bool {
 	_, contains := rs.data[key]
 	log.Debug("RequestScope.Contains: " + strconv.FormatBool(contains) + " - " + key)
 	return contains
-	//return false
 }
 
 func (rs RequestScope) IsEmpty() bool {

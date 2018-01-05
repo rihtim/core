@@ -62,7 +62,7 @@ func HandleRequest(request messages.Message, requestScope requestscope.RequestSc
 	}
 
 	// execute the request
-	if Functions.Contains(request.Res) {
+	if Functions.Contains(request.Res, request) {
 		response, editedRequestScope, err = Functions.Execute(request, requestScope, DataProvider)
 	} else {
 		response, editedRequestScope, err = Execute(request, DataProvider)

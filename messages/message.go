@@ -8,7 +8,7 @@ import (
 type Message struct {
 	Rid           int                    `json:"rid,omitempty"`
 	Res           string                 `json:"res,omitempty"`
-	Command       string                 `json:"cmd,omitempty"`
+	Command       string                 `json:"method,omitempty"`
 	Headers       map[string][]string    `json:"headers,omitempty"`
 	Parameters    map[string][]string    `json:"parameters,omitempty"`
 	MultipartForm *multipart.Form        `json:"multipart,omitempty"`
