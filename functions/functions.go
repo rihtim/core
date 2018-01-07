@@ -11,7 +11,7 @@ type FunctionHandler func(req messages.Message, rs requestscope.RequestScope, ex
 
 type FunctionController interface {
 	FindIndex(path, method string) int
-	Contains(path string) bool
+	Contains(path, method string) bool
 	Add(path, method string, handler FunctionHandler, extras interface{})
-	Execute(req messages.Message, rs requestscope.RequestScope, db dataprovider.Provider) (res messages.Message, editedRs requestscope.RequestScope, err *utils.Error)
+	Execute(req messages.Message, rs requestscope.RequestScope, db dataprovider.Provider) (resp messages.Message, editedRs requestscope.RequestScope, err *utils.Error)
 }

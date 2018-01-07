@@ -15,8 +15,8 @@ import (
 	"github.com/rihtim/core/dataprovider"
 )
 
-var Functions = &functions.CoreFunctionController{}
-var Interceptors = interceptors.CoreInterceptorController{}
+var Functions functions.FunctionController = &functions.CoreFunctionController{}
+var Interceptors interceptors.InterceptorController = &interceptors.CoreInterceptorController{}
 var DataProvider dataprovider.Provider
 
 var BodyParserExcludedPaths map[string]bool
@@ -62,7 +62,7 @@ func HandleRequest(request messages.Message, requestScope requestscope.RequestSc
 	}
 
 	// execute the request
-	if Functions.Contains(request.Res, request) {
+	if Functions.Contains(request.Res, request.Command) {
 		response, editedRequestScope, err = Functions.Execute(request, requestScope, DataProvider)
 	} else {
 		response, editedRequestScope, err = Execute(request, DataProvider)

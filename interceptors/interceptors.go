@@ -29,6 +29,6 @@ var typeNames = [...]string{
 
 type InterceptorController interface {
 	Add(path, method string, iType InterceptorType, interceptor Interceptor, extras interface{})
-	Get(path, method string, iType InterceptorType) (interceptors []Interceptor, extras []interface{})
-	Execute(path, method string, iType InterceptorType, rs requestscope.RequestScope, req, res messages.Message) (editedReq, editedRes messages.Message, editedRs requestscope.RequestScope, err *utils.Error)
+	Get(res, method string, interceptorType InterceptorType) (interceptors []Interceptor, extras []interface{}, paths []string)
+	Execute(res, method string, interceptorType InterceptorType, requestScope requestscope.RequestScope, request, response messages.Message, db dataprovider.Provider) (editedRequest, editedResponse messages.Message, editedRequestScope requestscope.RequestScope, err *utils.Error)
 }
