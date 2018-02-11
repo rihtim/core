@@ -19,7 +19,25 @@ type Message struct {
 }
 
 func (m Message) GetParameter(key string) (value string, contains bool) {
+	if m.Parameters == nil {
+		contains = false
+		return
+	}
+
 	values, contains := m.Parameters[key]
+	if contains {
+		value = values[0]
+	}
+	return
+}
+
+func (m Message) GetHeader(key string) (value string, contains bool) {
+	if m.Headers == nil {
+		contains = false
+		return
+	}
+
+	values, contains := m.Headers[key]
 	if contains {
 		value = values[0]
 	}
