@@ -7,6 +7,7 @@ import (
 
 type Message struct {
 	Rid           int                    `json:"rid,omitempty"`
+	IP            string                 `json:"ip,omitempty"`
 	Res           string                 `json:"res,omitempty"`
 	Command       string                 `json:"method,omitempty"`
 	Headers       map[string][]string    `json:"headers,omitempty"`

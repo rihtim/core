@@ -137,7 +137,9 @@ func parseRequest(r *http.Request) (request messages.Message, err *utils.Error) 
 		}
 		return
 	}
+
 	request = messages.Message{
+		IP:         getIPAdress(r),
 		Res:        res,
 		Command:    strings.ToLower(r.Method),
 		Headers:    r.Header,
