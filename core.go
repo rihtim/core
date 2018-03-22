@@ -177,7 +177,7 @@ func buildResponse(w http.ResponseWriter, response messages.Message, err *utils.
 
 	if response.Status != 0 {
 		// http panics if the response code is not in this range
-		if code < 100 || code > 999 {
+		if response.Status < 100 || response.Status > 999 {
 			w.WriteHeader(200)
 		} else {
 			w.WriteHeader(response.Status)
