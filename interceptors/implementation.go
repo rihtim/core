@@ -53,10 +53,10 @@ func (ci *CoreInterceptorController) Get(res, method string, interceptorType Int
 		}
 		// skip if resource doesn't match -or- resource is not '*' -or- resource doesn't match as regex
 		validator, regExpErr := regexp.Compile(index.res)
-		if !(strings.EqualFold(res, index.res) || strings.EqualFold("*", index.res) || (regExpErr == nil && validator.MatchString(res))) {
+		if !(index.res == "*" || index.res == res || (regExpErr == nil && validator.MatchString(res))) {
 			continue
 		}
-		if !(strings.EqualFold(method, index.method) || strings.EqualFold("*", index.method)) {
+		if !(index.method == method || index.method == "*") {
 			continue
 		}
 		interceptors = append(interceptors, index.interceptor)
@@ -98,6 +98,7 @@ func (ci *CoreInterceptorController) Execute(res, method string, interceptorType
 
 		outputRequest, outputResponse, outputRequestScope, err = interceptor(inputRequestScope, extra, inputRequest, inputResponse, db)
 		if err != nil {
+			log.Debug("Interceptor Returned Error: " + interceptorName)
 			return
 		}
 

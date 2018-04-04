@@ -23,7 +23,8 @@ func ConvertRichUrlToRegex(path string, isComplete bool) string {
 			partValues := strings.Split(partValue, ":")
 			name := "?P<" + partValues[0] + ">"
 
-			regex := ".+"
+			// accept anything but '/' char in group
+			regex := "[^/]+"
 			if len(partValues) > 1 {
 				regex = partValues[1]
 			}
