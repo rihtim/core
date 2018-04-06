@@ -138,8 +138,10 @@ func parseRequest(r *http.Request) (request messages.Message, err *utils.Error) 
 		return
 	}
 
+	ip, _ := utils.GetClientIPHelper(r)
+
 	request = messages.Message{
-		IP:         getIPAdress(r),
+		IP:         ip,
 		Res:        res,
 		Command:    strings.ToLower(r.Method),
 		Headers:    r.Header,
