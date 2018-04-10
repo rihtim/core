@@ -21,7 +21,6 @@ func GetClientIPHelper(req *http.Request) (ipResult string, errResult error) {
 		host := url.Host
 		ip, _, err := net.SplitHostPort(host)
 		if err == nil {
-			log.Printf("debug: Found IP using Header (Origin) sniffing. ip: %v", ip)
 			return ip, nil
 		}
 	}
@@ -29,14 +28,12 @@ func GetClientIPHelper(req *http.Request) (ipResult string, errResult error) {
 	// Try by Request
 	ip, err := getClientIPByRequestRemoteAddr(req)
 	if err == nil {
-		log.Printf("debug: Found IP using Request sniffing. ip: %v", ip)
 		return ip, nil
 	}
 
 	// Try Request Headers (X-Forwarder). Client could be behind a Proxy
 	ip, err = getClientIPByHeaders(req)
 	if err == nil {
-		log.Printf("debug: Found IP using Request Headers sniffing. ip: %v", ip)
 		return ip, nil
 	}
 
@@ -49,22 +46,17 @@ func GetClientIPHelper(req *http.Request) (ipResult string, errResult error) {
 func getClientIPByRequestRemoteAddr(req *http.Request) (ip string, err error) {
 
 	// Try via request
-	ip, port, err := net.SplitHostPort(req.RemoteAddr)
+	ip, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
-		log.Printf("debug: Getting req.RemoteAddr %v", err)
 		return "", err
-	} else {
-		log.Printf("debug: With req.RemoteAddr found IP:%v; Port: %v", ip, port)
 	}
 
 	userIP := net.ParseIP(ip)
 	if userIP == nil {
 		message := fmt.Sprintf("debug: Parsing IP from Request.RemoteAddr got nothing.")
-		log.Printf(message)
 		return "", fmt.Errorf(message)
 
 	}
-	log.Printf("debug: Found IP: %v", userIP)
 	return userIP.String(), nil
 
 }
@@ -81,7 +73,6 @@ func getClientIPByHeaders(req *http.Request) (ip string, err error) {
 	ipSlice = append(ipSlice, req.Header.Get("X-FORWARDED-FOR"))
 
 	for _, v := range ipSlice {
-		log.Printf("debug: client request header check gives ip: %v", v)
 		if v != "" {
 			return v, nil
 		}
