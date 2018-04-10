@@ -1,12 +1,11 @@
 package utils
 
 import (
-"errors"
-"fmt"
-"log"
-"net"
-"net/http"
-"net/url"
+	"errors"
+	"fmt"
+	"net"
+	"net/http"
+	"net/url"
 )
 
 // GetClientIPHelper gets the client IP using a mixture of techniques.
@@ -46,7 +45,7 @@ func GetClientIPHelper(req *http.Request) (ipResult string, errResult error) {
 func getClientIPByRequestRemoteAddr(req *http.Request) (ip string, err error) {
 
 	// Try via request
-	ip, _, err := net.SplitHostPort(req.RemoteAddr)
+	ip, _, err = net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
 		return "", err
 	}
