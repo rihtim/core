@@ -34,9 +34,14 @@ func (rs RequestScope) Get(key string) interface{} {
 	return rs.data[key]
 }
 
+func (rs RequestScope) Delete(key string) {
+	log.Debug("RequestScope.Delete:", key)
+	delete(rs.data, key)
+}
+
 func (rs RequestScope) Contains(key string) bool {
 	_, contains := rs.data[key]
-	log.Debug("RequestScope.Contains: " + strconv.FormatBool(contains) + " - " + key)
+	log.Debug("RequestScope.Has:" + key + " = " + strconv.FormatBool(contains))
 	return contains
 }
 
