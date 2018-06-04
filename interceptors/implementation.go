@@ -3,13 +3,14 @@ package interceptors
 import (
 	"regexp"
 	"strings"
+	"runtime"
+	"reflect"
+	"github.com/Sirupsen/logrus"
 	"github.com/rihtim/core/log"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
 	"github.com/rihtim/core/requestscope"
 	"github.com/rihtim/core/dataprovider"
-	"runtime"
-	"reflect"
 )
 
 type interceptorIndex struct {
@@ -98,7 +99,10 @@ func (ci *CoreInterceptorController) Execute(res, method string, interceptorType
 
 		outputRequest, outputResponse, outputRequestScope, err = interceptor(inputRequestScope, extra, inputRequest, inputResponse, db)
 		if err != nil {
-			log.Debug("Interceptor Returned Error: " + interceptorName)
+			log.WithFields(logrus.Fields{
+				"error":       err.Error(),
+				"interceptor": interceptorName,
+			}).Error("Interceptor returned error.")
 			return
 		}
 
