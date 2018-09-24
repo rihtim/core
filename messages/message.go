@@ -34,6 +34,11 @@ func (m Message) GetParameter(key string) (value string, contains bool) {
 	return
 }
 
+func (m Message) GetParameterAlone(key string) (value string) {
+	value, _ = m.GetParameter(key)
+	return
+}
+
 func (m Message) GetIntParameter(key string) (valueAsNumber int, contains bool, err *utils.Error) {
 	if m.Parameters == nil {
 		contains = false
