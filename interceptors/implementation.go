@@ -5,7 +5,7 @@ import (
 	"strings"
 	"runtime"
 	"reflect"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/rihtim/core/log"
 	"github.com/rihtim/core/utils"
 	"github.com/rihtim/core/messages"
